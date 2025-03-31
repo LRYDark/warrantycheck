@@ -7,58 +7,45 @@ if (!defined('GLPI_ROOT')) {
 }
 
 function findSerialNumbers(string $text): array {
-    // 🔧 Nettoyage HTML
+    global $DB, $CFG_GLPI;
+    $config = new PluginWarrantycheckConfig();
+
+    // ✅ Blacklist enrichie (à stocker dans un champ ou fichier si besoin)
+    $blacklist_row = $config->blacklist();
+
+    // 🧠 Conversion en blacklist dynamique
+    $dynamic_blacklist = array_filter(array_map('trim', explode(',', strtolower($blacklist_row))));
+    $dynamic_blacklist = array_flip($dynamic_blacklist); // Accès rapide
+
+    // 🧼 Nettoyage HTML
     $text = preg_replace('/<br\s*\/?>/i', ' ', $text);
     $text = preg_replace('/<\/?(p|div|h\d|strong|span|em|b|i|u)>/i', ' ', $text);
     $text = strip_tags($text);
     $text = html_entity_decode($text);
     $text = mb_convert_encoding($text, 'UTF-8', 'UTF-8');
 
-    // 🔠 Découpe des mots
+    // 🔠 Séparation des mots
     $words = preg_split('/[^A-Z0-9\-]+/i', $text);
     $results = [];
 
-    // ❌ Blacklist multilingue
-    $blacklist = [
-        // FR
-        'client','prise','accessoire','sauvegarde','informations','données',
-        'bonjour','merci','reçu','ticket','machine','produit','test',
-        'numéro','serie','glpi','portable','ref','support','urgent',
-        'non','oui','ordinateur','imprimante',
-        // EN
-        'hello','thanks','product','reference','model','support',
-        'accessory','backup','data','issue','pc','laptop','desktop',
-        'screen','number','serial','information','yes','no',
-        // DE
-        'kunde','danke','modell','gerät','sichern','daten','anhang',
-        'unterstützung','nummer','informationen','problem',
-        'ja','nein'
-    ];
+    // 🧠 Indices sémantiques
+    $hints = ['numéro de série', 'numero de serie', 'n° de série', 'serial', 'serial number', 's/n', 'sn', 'seriennummer'];
+    $soft_hints = ['et', 'ainsi que', 'plus', 'also', 'and', 'auch'];
 
-    // 🔍 Mots-clés explicites
-    $hints = [
-        'numéro de série','numero de serie','n° de série','n° série',
-        'serial','serial number','s/n','sn','seriennummer'
-    ];
+    foreach ($words as $i => $word) {
+        $word = strtoupper(trim($word));
+        $word_lc = strtolower($word);
 
-    // 🔍 Mots de liaison
-    $soft_hints = ['et','ainsi que','plus','also','and','auch'];
-
-    // 🔍 Analyse intelligente mot par mot
-    for ($i = 0; $i < count($words); $i++) {
-        $word = strtoupper(trim($words[$i]));
-
-        if (
-            strlen($word) < 6 || strlen($word) > 20 ||
-            in_array(strtolower($word), $blacklist)
-        ) continue;
-
-        // Exclure noms machines typiques
-        if (preg_match('/^[A-Z]{2,5}-[A-Z0-9]{2,6}(-[A-Z0-9]{1,4})?$/', $word)) continue;
-
-        // Doit contenir au moins une lettre et un chiffre
+        // 🛑 Règles d’exclusion
+        if (strlen($word) < 6 || strlen($word) > 20) continue;
+        if (isset($dynamic_blacklist[$word_lc])) continue;
         if (!preg_match('/[A-Z]/', $word) || !preg_match('/\d/', $word)) continue;
+        if (substr_count($word, '-') >= 2) continue;
+        if (preg_match('/^\d{4,6}H\d{2}$/', $word)) continue;
+        if (preg_match('/^\d{6,}$/', $word)) continue;
+        if (preg_match('/^[A-Z]{6,}$/', $word)) continue;
 
+        // 🔍 Contexte autour
         $score = 0;
         $context = implode(' ', array_slice($words, max(0, $i - 5), 10));
 
@@ -68,27 +55,27 @@ function findSerialNumbers(string $text): array {
                 break;
             }
         }
-
-        foreach ($soft_hints as $hint) {
-            if (stripos($context, $hint) !== false) {
+        foreach ($soft_hints as $soft) {
+            if (stripos($context, $soft) !== false) {
                 $score += 25;
                 break;
             }
         }
 
-        // 🧩 Bonus forme
-        if (strlen($word) >= 8 && strlen($word) <= 12) $score += 10;
-        if (preg_match('/^[A-Z]{2,5}\d{4,10}$/', $word)) $score += 15;
-        if (preg_match('/^\d{4,8}[A-Z]{1,3}$/', $word)) $score += 15;
+        // 🎯 Bonus par forme
+        if (preg_match('/^[A-Z]{2,5}\d{4,10}$/', $word)) $score += 25;
+        if (preg_match('/^\d{4,8}[A-Z]{1,4}$/', $word)) $score += 25;
+        if (preg_match('/^[A-Z0-9\-]{7,14}$/', $word)) $score += 15;
         if (preg_match('/^[A-Z0-9]{6,}$/', $word)) $score += 5;
         if (strpos($word, '-') !== false) $score += 5;
         if ($word === strtoupper($word)) $score += 5;
 
-        if ($score < 15 && preg_match('/^[A-Z0-9]{6,12}$/', $word)) {
-            $score = 15;
+        // IA : rattrapage si motif probable
+        if ($score < 20 && preg_match('/^[A-Z0-9\-]{7,14}$/', $word)) {
+            $score = 20;
         }
 
-        if ($score >= 15) {
+        if ($score >= 20) {
             $results[$word] = $score;
         }
     }
@@ -126,9 +113,9 @@ while ($row = $DB->fetchassoc($result)) {
 
 // Appel de notre détection IA
 $liste = findSerialNumbers($all_text);
-$resultats[] = [
-    'serial' => $liste
-];
+$liste = array_map(function($s) {
+    return preg_replace('/[^A-Za-z0-9]/', '', $s); // ne garde que lettres et chiffres
+}, $liste);
 
 $resultats = [];
 require_once PLUGIN_WARRANTYCHECK_DIR . '/front/warranty_functions.php';
