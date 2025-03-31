@@ -165,6 +165,49 @@ class PluginWarrantycheckGenerateCRI extends CommonGLPI {
                echo '<div class="alert alert-danger mt-4">Erreur : Aucune donnée retournée (Erreur serveur '.$_GET['fabricant'].') ou numéro invalide.</div>';
             }
          }
+
+         $SN = $result['serial'];
+
+         echo '<br><br>';
+
+         echo '<div class="baspage">';
+         echo '  <div class="card mt-4 mb-0 shadow-sm w-100">';
+         echo '    <div class="card-body">';
+         echo '      <div class="card-body d-flex justify-content-center gap-4">';
+         echo '        <label class="d-block mb-2"><strong>Sites officiels de vérification de garantie :</strong></label>';
+         echo '        <div class="d-flex flex-wrap gap-2">';
+         echo '          <a class="btn btn-outline-primary btn-sm" href="https://support.hp.com/fr-fr/check-warranty" target="_blank" onclick="copyToClipboard(\'' . $SN . '\')">HP</a>';
+         echo '          <a class="btn btn-outline-primary btn-sm" href="https://pcsupport.lenovo.com/fr/fr/warranty-lookup#/" target="_blank" onclick="copyToClipboard(\'' . $SN . '\')">Lenovo</a>';
+         echo '          <a class="btn btn-outline-primary btn-sm" href="https://www.dell.com/support/contractservices/fr-fr/" target="_blank" onclick="copyToClipboard(\'' . $SN . '\')">Dell</a>';
+         echo '          <a class="btn btn-outline-primary btn-sm" href="https://www.wortmann.de/fr-fr/profile/snsearch.aspx?SN=' . $SN . '" target="_blank" onclick="copyToClipboard(\'' . $SN . '\')">Terra</a>';
+         echo '          <a class="btn btn-outline-primary btn-sm" href="https://support.dynabook.com/support/warranty" target="_blank" onclick="copyToClipboard(\'' . $SN . '\')">Dynabook</a>';
+         echo '        </div>';
+         echo '      </div>';
+         echo '    </div>';
+         echo '  </div>';
+         echo '</div>';
+
+         ?>
+            <style>
+               .baspage {
+                  position: fixed;
+                  bottom: 0;
+                  height: 150px; /* Hauteur du footer */
+               }
+            </style>
+
+            <script>
+               function copyToClipboard(text) {
+               if (!text || text.trim() === '') return; // ne rien faire si vide
+
+               navigator.clipboard.writeText(text).then(function() {
+                  console.log('Texte copié dans le presse-papiers : ' + text);
+               }, function(err) {
+                  console.error('Erreur de copie : ', err);
+               });
+               }
+            </script>
+         <?php
       }
    }
 }
