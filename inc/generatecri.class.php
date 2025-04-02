@@ -77,19 +77,26 @@ class PluginWarrantycheckGenerateCRI extends CommonGLPI {
          echo '<div class="card-body">';
             
             echo "<form method='get' action='" . self::getFormUrl() . "' class='mb-4'>";
-               echo '<div class="d-flex justify-content-center">';
+
+               echo '<div class="d-flex flex-wrap justify-content-center">';
+                  // Première ligne (HP, Dell, Lenovo)
                   echo '<div class="form-check form-check-inline">';
                      echo '<input class="form-check-input" type="radio" name="Manufacturer" id="inlineRadio1" value="HP">';
                      echo '<label class="form-check-label" for="inlineRadio1">HP</label>';
                   echo '</div>';
                   echo '<div class="form-check form-check-inline">';
                      echo '<input class="form-check-input" type="radio" name="Manufacturer" id="inlineRadio2" value="Dell">';
-                     echo '<label class="form-check-label" for="inlineRadio2">Dell </label>';
+                     echo '<label class="form-check-label" for="inlineRadio2">Dell</label>';
                   echo '</div>';
                   echo '<div class="form-check form-check-inline">';
                      echo '<input class="form-check-input" type="radio" name="Manufacturer" id="inlineRadio3" value="Lenovo">';
                      echo '<label class="form-check-label" for="inlineRadio3">Lenovo</label>';
                   echo '</div>';
+               
+                  // Saut de ligne forcé uniquement en affichage mobile
+                  echo '<div class="w-100 d-block d-sm-none"></div>';
+               
+                  // Deuxième ligne (Terra, Dynabook, Auto)
                   echo '<div class="form-check form-check-inline">';
                      echo '<input class="form-check-input" type="radio" name="Manufacturer" id="inlineRadio4" value="Terra">';
                      echo '<label class="form-check-label" for="inlineRadio4">Terra</label>';
@@ -103,6 +110,7 @@ class PluginWarrantycheckGenerateCRI extends CommonGLPI {
                      echo '<label class="form-check-label" for="inlineRadio6">Auto</label>';
                   echo '</div>';
                echo '</div>';
+
                echo '<br>';
                echo '<div class="d-flex justify-content-center">';
                   echo '<div class="input-group" style="max-width: 600px; width: 100%;">';
@@ -162,13 +170,11 @@ class PluginWarrantycheckGenerateCRI extends CommonGLPI {
             }
          } else {
             if (isset($_GET['cache_id'])) {
-               echo '<div class="alert alert-danger mt-4">Erreur : Aucune donnée retournée (Erreur serveur '.$_GET['fabricant'].') ou numéro invalide.</div>';
+               echo '<div class="alert alert-danger mt-4">Erreur : Aucune donnée retournée (Erreur serveur '.$_GET['fabricant'].'), Fabricant non détécté ou numéro invalide.</div>';
             }
          }
 
          $SN = $result['serial'];
-
-         echo '<br><br>';
 
          echo '<div class="baspage">';
          echo '  <div class="card mt-4 mb-0 shadow-sm w-100">';
@@ -189,10 +195,18 @@ class PluginWarrantycheckGenerateCRI extends CommonGLPI {
 
          ?>
             <style>
-               .baspage {
-                  position: fixed;
-                  bottom: 0;
-                  height: 150px; /* Hauteur du footer */
+               @media only screen and (max-width: 600px) {
+                  .baspage {
+                     margin-bottom: 20px;
+                  }
+               }
+
+               @media only screen and (min-width: 768px) {
+                  .baspage {
+                     position: fixed;
+                     bottom: 0;
+                     height: 150px; /* Hauteur du footer */
+                  }
                }
             </style>
 
