@@ -51,22 +51,27 @@ class PluginWarrantycheckGenerateCRI extends CommonGLPI {
     */
    function showWizard($ticket, $entities) {
       if(Session::haveRight("plugin_warrantycheck_survey", READ)){
-         
          global $DB, $CFG_GLPI;
          $UserID = Session::getLoginUserID();
-         $result['serial'] = null;
+         $SN = null;
+         $noresultsn = false;
+
+         if (isset($_GET['cache_id'], $_SESSION['generatecri_cache'][$_GET['cache_id']])) {
+            $result = $_SESSION['generatecri_cache'][$_GET['cache_id']];
+            $SN = $result['serial'];
+         }
 
          // Formulaire
          echo '<div class="card mb-4 shadow-sm w-100">';
          echo '<div class="card-header bg-secondary text-white fw-bold">';
          echo __('<i class="fas fa-search"></i>&nbsp;&nbsp; Vérification de garantie') . 
-         '&nbsp;<i class="fas fa-info-circle text-white" 
-         data-bs-toggle="popover" 
-         data-bs-html="true" 
-         data-bs-trigger="hover focus" 
-         data-bs-placement="right" 
-         data-bs-custom-class="tooltip-style"
-         data-bs-content="<b>Fabricants pris en charge :</b><ul style=\'padding-left: 1.2em; margin: 0; text-align: left; list-style-position: inside;\'><li>HP</li><li>Dell</li><li>Lenovo</li><li>Terra</li><li>Dynabook</li></ul>"></i>';
+                 '&nbsp;<i class="fas fa-info-circle text-white" 
+                  data-bs-toggle="popover" 
+                  data-bs-html="true" 
+                  data-bs-trigger="hover focus" 
+                  data-bs-placement="right" 
+                  data-bs-custom-class="tooltip-style"
+                  data-bs-content="<b>Fabricants pris en charge :</b><ul style=\'padding-left: 1.2em; margin: 0; text-align: left; list-style-position: inside;\'><li>HP</li><li>Dell</li><li>Lenovo</li><li>Terra</li><li>Dynabook</li></ul>"></i>';
          ?><script>
             var popoverTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="popover"]'));
             var popoverList = popoverTriggerList.map(function (popoverTriggerEl) {
@@ -120,14 +125,23 @@ class PluginWarrantycheckGenerateCRI extends CommonGLPI {
                      echo '</button>';
                   echo '</div>';
                echo '</div>';
-            Html::closeForm();
-
-         echo '</div>'; // card-body
+               Html::closeForm();
+               
+               echo '<div class="d-flex justify-content-center gap-4">';
+               echo '   <label class="d-block mb-2"><strong>Sites officiels de vérification de garantie :</strong></label>';
+               echo '      <div class="d-flex flex-wrap gap-2">';
+               echo '         <a class="btn btn-outline-primary btn-sm" href="https://support.hp.com/fr-fr/check-warranty" target="_blank" onclick="copyToClipboard(\'' . $SN . '\')">HP</a>';
+               echo '         <a class="btn btn-outline-primary btn-sm" href="https://pcsupport.lenovo.com/fr/fr/warranty-lookup#/" target="_blank" onclick="copyToClipboard(\'' . $SN . '\')">Lenovo</a>';
+               echo '         <a class="btn btn-outline-primary btn-sm" href="https://www.dell.com/support/contractservices/fr-fr/" target="_blank" onclick="copyToClipboard(\'' . $SN . '\')">Dell</a>';
+               echo '         <a class="btn btn-outline-primary btn-sm" href="https://www.wortmann.de/fr-fr/profile/snsearch.aspx?SN=' . $SN . '" target="_blank" onclick="copyToClipboard(\'' . $SN . '\')">Terra</a>';
+               echo '         <a class="btn btn-outline-primary btn-sm" href="https://support.dynabook.com/support/warranty" target="_blank" onclick="copyToClipboard(\'' . $SN . '\')">Dynabook</a>';
+               echo '      </div>';
+               echo '</div>';
+            echo '</div>'; // card-body
          echo '</div>'; // card
 
          // Résultat
          if (isset($_GET['cache_id'], $_SESSION['generatecri_cache'][$_GET['cache_id']])) {
-            $result = $_SESSION['generatecri_cache'][$_GET['cache_id']];
             unset($_SESSION['generatecri_cache'][$_GET['cache_id']]);
 
             if ($result && is_array($result)) {
@@ -174,53 +188,95 @@ class PluginWarrantycheckGenerateCRI extends CommonGLPI {
                   'date_start'    => $result['warranty_start'],
                   'date_end'      => $result['warranty_end'],
                ]);
+
+               $noresultsn = true;
             } else {
                echo '<div class="alert alert-danger mt-4">Erreur : Aucune donnée retournée ou numéro invalide.</div>';
+               $noresultsn = false;
             }
          } else {
             if (isset($_GET['cache_id'])) {
                echo '<div class="alert alert-danger mt-4">Erreur : Aucune donnée retournée (Erreur serveur '.$_GET['fabricant'].'), Fabricant non détécté ou numéro invalide.</div>';
+               $noresultsn = false;
             }
          }
-
-         echo countElementsInTable('glpi_plugin_warrantycheck_surveys', ['serial_number' => 'MP1Z0Y6R']);
-
-         $SN = $result['serial'];
-
-         echo '<div class="baspage">';
-         echo '  <div class="card mt-4 mb-0 shadow-sm w-100">';
-         echo '    <div class="card-body">';
-         echo '      <div class="card-body d-flex justify-content-center gap-4">';
-         echo '        <label class="d-block mb-2"><strong>Sites officiels de vérification de garantie :</strong></label>';
-         echo '        <div class="d-flex flex-wrap gap-2">';
-         echo '          <a class="btn btn-outline-primary btn-sm" href="https://support.hp.com/fr-fr/check-warranty" target="_blank" onclick="copyToClipboard(\'' . $SN . '\')">HP</a>';
-         echo '          <a class="btn btn-outline-primary btn-sm" href="https://pcsupport.lenovo.com/fr/fr/warranty-lookup#/" target="_blank" onclick="copyToClipboard(\'' . $SN . '\')">Lenovo</a>';
-         echo '          <a class="btn btn-outline-primary btn-sm" href="https://www.dell.com/support/contractservices/fr-fr/" target="_blank" onclick="copyToClipboard(\'' . $SN . '\')">Dell</a>';
-         echo '          <a class="btn btn-outline-primary btn-sm" href="https://www.wortmann.de/fr-fr/profile/snsearch.aspx?SN=' . $SN . '" target="_blank" onclick="copyToClipboard(\'' . $SN . '\')">Terra</a>';
-         echo '          <a class="btn btn-outline-primary btn-sm" href="https://support.dynabook.com/support/warranty" target="_blank" onclick="copyToClipboard(\'' . $SN . '\')">Dynabook</a>';
-         echo '        </div>';
-         echo '      </div>';
-         echo '    </div>';
-         echo '  </div>';
-         echo '</div>';
+         
+         if ($noresultsn == true){
+            $tickets_id_list = [];
+            
+            $query = $DB->query("SELECT tickets_id FROM glpi_plugin_warrantycheck_surveys WHERE serial_number = '$SN'");
+            if ($row = $query->fetch_object()) {
+               $tickets_id_list = array_filter(array_map('intval', explode(',', $row->tickets_id)));
+            }
+            
+            if (count($tickets_id_list) > 0) {
+            
+               $in_clause = implode(',', $tickets_id_list);
+            
+               $tickets_query = "
+                  SELECT glpi_tickets.id, glpi_tickets.name, glpi_tickets.status, glpi_tickets.date_creation, glpi_tickets.content,
+                           glpi_entities.name AS entity_name
+                  FROM glpi_tickets
+                  LEFT JOIN glpi_entities ON glpi_entities.id = glpi_tickets.entities_id
+                  WHERE glpi_tickets.id IN ($in_clause)
+                  ORDER BY glpi_tickets.date_creation DESC;
+               ";
+               $result = $DB->query($tickets_query);
+            
+               echo '<br><div class="card mb-4 shadow-sm w-100">
+                        <div class="card-header bg-dark text-white fw-bold">Tickets liés au numéro de série : ' . htmlspecialchars($SN) . '</div>
+                        <div class="card-body">
+                        <div class="table-responsive">
+                        <table class="table table-bordered table-hover">
+                           <thead class="thead-light">
+                              <tr>
+                                    <th>ID</th>
+                                    <th>Entité</th>
+                                    <th>Nom</th>
+                                    <th>Statut</th>
+                                    <th>Date de création</th>
+                              </tr>
+                           </thead>
+                           <tbody>';
+            
+               if ($result && $DB->numrows($result)) {
+                  while ($row = $DB->fetchassoc($result)) {
+                        $ticket_id   = (int)$row['id'];
+                        $entity_name = htmlspecialchars($row['entity_name']);
+                        $name        = htmlspecialchars($row['name']);
+                        $status      = Ticket::getStatus($row['status']);
+                        $date        = Html::convDateTime($row['date_creation']);
+                        $content     = nl2br(htmlspecialchars($row['content']));
+            
+                        echo "<tr>
+                              <td><a href='https://jr.zerobug-57.fr/glpi/front/ticket.form.php?id=$ticket_id' target='_blank'>$ticket_id</a></td>
+                              <td>$entity_name</td>
+                              <td>
+                                    <a href='https://jr.zerobug-57.fr/glpi/front/ticket.form.php?id=$ticket_id' target='_blank'>$name</a>
+                                    <i class='fas fa-info-circle text-info ml-2' data-toggle='tooltip' data-html='true' title=\"$content\"></i>
+                              </td>
+                              <td>$status</td>
+                              <td>$date</td>
+                              </tr>";
+                  }
+               } else {
+                  echo '<tr><td colspan="5" class="text-center">Aucun ticket trouvé.</td></tr>';
+               }
+            
+               echo '</tbody></table></div></div></div>';
+            } else {
+               echo '<br><div class="alert alert-info mb-4 w-100">Aucun ticket associé au numéro de série <strong>' . htmlspecialchars($SN) . '</strong>.</div>';
+            }
+            
+            // Active les tooltips Bootstrap
+            echo "<script>
+               $(function () {
+                  $('[data-toggle=\"tooltip\"]').tooltip()
+               })
+            </script>";
+         }
 
          ?>
-            <style>
-               @media only screen and (max-width: 600px) {
-                  .baspage {
-                     margin-bottom: 20px;
-                  }
-               }
-
-               @media only screen and (min-width: 768px) {
-                  .baspage {
-                     position: fixed;
-                     bottom: 0;
-                     height: 150px; /* Hauteur du footer */
-                  }
-               }
-            </style>
-
             <script>
                function copyToClipboard(text) {
                if (!text || text.trim() === '') return; // ne rien faire si vide

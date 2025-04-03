@@ -8,19 +8,39 @@ if (!defined('GLPI_ROOT')) {
 function insertSurveyData(array $data) {
     global $DB;
 
-    // Champs obligatoires
     if (!empty($data['fabricant']) || !empty($data['date_start']) || !empty($data['date_end'])) {
-        if (countElementsInTable('glpi_plugin_warrantycheck_surveys', ['serial_number' => $data['serial_number']]) == 0) {
-            // Valeurs par défaut si non fournies
-            $data['entities_id']    = $data['entities_id'] ?? 0;
-            $data['tickets_id']     = $data['tickets_id']  ?? 0;
-            $data['fabricant']      = $data['fabricant']  ?? 'Inconnu';
-            $data['model']          = $data['model']  ?? '';
+        $count = countElementsInTable('glpi_plugin_warrantycheck_surveys', ['serial_number' => $data['serial_number']]);
 
-            // Construction des champs et des valeurs dynamiquement
-            $fields = array_keys($data);
+        if ($count > 0 && !empty($data['tickets_id'])) {
+            // Récupérer la liste actuelle des tickets
+            if ($query = $DB->query("SELECT id, tickets_id FROM glpi_plugin_warrantycheck_surveys WHERE serial_number = 'MP1Z0Y6R'")->fetch_object()) {
+            
+                $existing_id      = $query->id;
+                $existing_tickets = array_map('trim', explode(',', $query->tickets_id)); // ✅ bonne colonne
+            
+                // Vérifie si le nouveau ticket est déjà présent
+                if (!in_array($data['tickets_id'], $existing_tickets)) {
+                    // Ajout du nouveau ticket
+                    $updated_tickets = implode(',', array_merge($existing_tickets, [$data['tickets_id']]));
+            
+                    $update_sql = "UPDATE glpi_plugin_warrantycheck_surveys SET tickets_id = ? WHERE id = ?";
+                    $update_stmt = $DB->prepare($update_sql);
+                    try {
+                        $update_stmt->execute([$updated_tickets, $existing_id]);
+                    } catch (Throwable $e) {
+                        Toolbox::logDebug("PluginWarrantyCheck", "Update error: " . $e->getMessage());
+                    }
+                }
+            }           
+        } elseif ($count == 0) {
+            // Insertion initiale si aucun serial_number trouvé
+            $data['tickets_id']  = $data['tickets_id']  ?? 0;
+            $data['fabricant']   = $data['fabricant']   ?? 'Inconnu';
+            $data['model']       = $data['model']       ?? '';
+
+            $fields       = array_keys($data);
             $placeholders = array_fill(0, count($fields), '?');
-            $values = array_values($data);
+            $values       = array_values($data);
 
             $sql = "INSERT INTO glpi_plugin_warrantycheck_surveys (" . implode(',', $fields) . ")
                     VALUES (" . implode(',', $placeholders) . ")";
@@ -28,7 +48,7 @@ function insertSurveyData(array $data) {
             try {
                 $stmt = $DB->prepare($sql);
                 $stmt->execute($values);
-            }catch (Throwable $e) {
+            } catch (Throwable $e) {
                 Toolbox::logDebug("PluginWarrantyCheck", "Insert error: " . $e->getMessage());
             }
         }

@@ -37,9 +37,28 @@ class PluginWarrantycheckTicket extends CommonDBTM {
       return true;
    }
 
+   public static function countTicketsIDMatch($table, $column, $value) {
+      global $DB;
+
+      $sql = "
+         SELECT COUNT(*) AS total
+         FROM `$table`
+         WHERE `$column` = '$value'
+            OR `$column` LIKE '$value,%'
+            OR `$column` LIKE '%,$value'
+            OR `$column` LIKE '%,{$value},%'
+      ";
+      $res = $DB->query($sql);
+      if ($row = $DB->fetchassoc($res)) {
+         return (int)$row['total'];
+      }
+      return 0;
+   }
+
    public static function countForItem(CommonDBTM $item) { 
       if(Session::haveRight("plugin_warrantycheck", READ)){
-         return countElementsInTable('glpi_plugin_warrantycheck_surveys', ['tickets_id' => $item->getID()]);
+         $count = self::countTicketsIDMatch('glpi_plugin_warrantycheck_surveys', 'tickets_id', $item->getID());
+         return $count;
       }
    }
 
@@ -50,10 +69,15 @@ class PluginWarrantycheckTicket extends CommonDBTM {
          'SELECT' => '*',
          'FROM'   => 'glpi_plugin_warrantycheck_surveys',
          'WHERE'  => [
-            'tickets_id' => $ID,
+            'OR' => [
+               ['tickets_id' => $ID],                             // cas: "3"
+               ['tickets_id' => ['LIKE', "$ID,%"]],               // cas: "3,4,5"
+               ['tickets_id' => ['LIKE', "%,$ID"]],               // cas: "1,2,3"
+               ['tickets_id' => ['LIKE', "%,$ID,%"]],             // cas: "1,2,3,4"
+            ]
          ],
          'ORDER'  => ['id DESC'],
-      ];
+      ];    
 
       $vouchers = [];
       foreach ($DB->request($request) as $data) {
@@ -65,7 +89,7 @@ class PluginWarrantycheckTicket extends CommonDBTM {
 
    static function showForTicket(Ticket $ticket) { // formulaire sur le ticket
       global $DB, $CFG_GLPI;
-     
+
       $ID = $ticket->getField('id'); // recupération de l'id ticket
       
       echo "<table class='tab_cadre_fixe'>";
@@ -214,10 +238,7 @@ class PluginWarrantycheckTicket extends CommonDBTM {
                            $.ajax({
                               url: '<?php echo $CFG_GLPI["root_doc"]; ?>/plugins/warrantycheck/front/checkwarranty_ticket.php',
                               method: 'GET',
-                              data: {
-                                 ticket_id: ticketID,
-                                 entities_id: entityID
-                              },
+                              data: {ticket_id: ticketID},
                               success: function(data) {
                                  console.log("Réponse brute :", data);
 
@@ -299,8 +320,7 @@ class PluginWarrantycheckTicket extends CommonDBTM {
       if (!$DB->tableExists($table)) {
          $query = "CREATE TABLE IF NOT EXISTS `$table` (
                      `id` int {$default_key_sign} NOT NULL auto_increment,
-                     `tickets_id` int {$default_key_sign} NOT NULL DEFAULT '0',
-                     `entities_id` int {$default_key_sign} NOT NULL DEFAULT '0',
+                     `tickets_id` VARCHAR(255) {$default_key_sign} NOT NULL DEFAULT '0',
                      `serial_number` VARCHAR(255) NULL,
                      `date_start` TIMESTAMP NULL,
                      `date_end` TIMESTAMP NULL,

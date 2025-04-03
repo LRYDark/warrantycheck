@@ -85,7 +85,6 @@ function findSerialNumbers(string $text): array {
 }
 
 $Ticket_id = (int)($_GET['ticket_id'] ?? 0);
-$entities_id = (int)($_GET['entities_id'] ?? 0);
 
 if ($Ticket_id <= 0) {
     echo json_encode([]);
@@ -126,7 +125,6 @@ foreach ($liste as $serial) {
 
     if (isset($infos) && is_array($infos) && isset($infos['fabricant'], $infos['warranty_start'], $infos['warranty_end'], $infos['serial'])) {
         insertSurveyData([
-            'entities_id'   => $entities_id,
             'tickets_id'    => $Ticket_id,
             'serial_number' => $infos['serial'],
             'model'         => $infos['model'] ?? '',
