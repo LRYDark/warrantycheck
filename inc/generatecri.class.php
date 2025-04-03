@@ -204,7 +204,7 @@ class PluginWarrantycheckGenerateCRI extends CommonGLPI {
          if ($noresultsn == true){
             $tickets_id_list = [];
             
-            $query = $DB->query("SELECT tickets_id FROM glpi_plugin_warrantycheck_surveys WHERE serial_number = '$SN'");
+            $query = $DB->query("SELECT tickets_id FROM glpi_plugin_warrantycheck_tickets WHERE serial_number = '$SN'");
             if ($row = $query->fetch_object()) {
                $tickets_id_list = array_filter(array_map('intval', explode(',', $row->tickets_id)));
             }
@@ -230,9 +230,9 @@ class PluginWarrantycheckGenerateCRI extends CommonGLPI {
                         <table class="table table-bordered table-hover">
                            <thead class="thead-light">
                               <tr>
-                                    <th>ID</th>
+                                    <th>ID du ticket</th>
                                     <th>Entité</th>
-                                    <th>Nom</th>
+                                    <th>Titre du ticket</th>
                                     <th>Statut</th>
                                     <th>Date de création</th>
                               </tr>
@@ -241,24 +241,35 @@ class PluginWarrantycheckGenerateCRI extends CommonGLPI {
             
                if ($result && $DB->numrows($result)) {
                   while ($row = $DB->fetchassoc($result)) {
-                        $ticket_id   = (int)$row['id'];
-                        $entity_name = htmlspecialchars($row['entity_name']);
-                        $name        = htmlspecialchars($row['name']);
-                        $status      = Ticket::getStatus($row['status']);
-                        $date        = Html::convDateTime($row['date_creation']);
-                        $content     = nl2br(htmlspecialchars($row['content']));
-            
-                        echo "<tr>
-                              <td><a href='https://jr.zerobug-57.fr/glpi/front/ticket.form.php?id=$ticket_id' target='_blank'>$ticket_id</a></td>
-                              <td>$entity_name</td>
-                              <td>
-                                    <a href='https://jr.zerobug-57.fr/glpi/front/ticket.form.php?id=$ticket_id' target='_blank'>$name</a>
-                                    <i class='fas fa-info-circle text-info ml-2' data-toggle='tooltip' data-html='true' title=\"$content\"></i>
-                              </td>
-                              <td>$status</td>
-                              <td>$date</td>
-                              </tr>";
-                  }
+                     $ticket_id   = (int)$row['id'];
+                     $entity_name = htmlspecialchars($row['entity_name']);
+                     $name        = htmlspecialchars($row['name']);
+                     $status      = Ticket::getStatus($row['status']);
+                     $date        = Html::convDateTime($row['date_creation']);
+                 
+                     // Traitement du contenu enrichi pour le tooltip GLPI
+                     $ticket_content = html_entity_decode($row['content']);
+                     $tooltip_html = Glpi\RichText\RichText::getEnhancedHtml($ticket_content);
+                 
+                     // Génération du lien avec le tooltip GLPI
+                     $link = "<a id='ticket{$ticket_id}' href='" . Ticket::getFormURLWithID($ticket_id) . "'>$name</a>";
+                     $link = sprintf(
+                         __('%1$s %2$s'),
+                         $link,
+                         Html::showToolTip($tooltip_html, [
+                             'applyto' => 'ticket' . $ticket_id,
+                             'display' => true
+                         ])
+                     );
+                 
+                     echo "<tr>
+                             <td><a href='https://jr.zerobug-57.fr/glpi/front/ticket.form.php?id=$ticket_id' target='_blank'>$ticket_id</a></td>
+                             <td>$entity_name</td>
+                             <td>$link</td>
+                             <td>$status</td>
+                             <td>$date</td>
+                           </tr>";
+                 }
                } else {
                   echo '<tr><td colspan="5" class="text-center">Aucun ticket trouvé.</td></tr>';
                }

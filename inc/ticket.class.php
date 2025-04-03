@@ -7,7 +7,7 @@ if (!defined('GLPI_ROOT')) {
 //------------------------------------------------------------------------------------------
 class PluginWarrantycheckTicket extends CommonDBTM {
 
-   public static $rightname = 'warrantycheck';
+   public static $rightname = 'plugin_warrantycheck';
    public  static  $warrantycheck = 0 ;
 
 //*--------------------------------------------------------------------------------------------- WARRANTYCHECK ONGLET
@@ -57,7 +57,7 @@ class PluginWarrantycheckTicket extends CommonDBTM {
 
    public static function countForItem(CommonDBTM $item) { 
       if(Session::haveRight("plugin_warrantycheck", READ)){
-         $count = self::countTicketsIDMatch('glpi_plugin_warrantycheck_surveys', 'tickets_id', $item->getID());
+         $count = self::countTicketsIDMatch('glpi_plugin_warrantycheck_tickets', 'tickets_id', $item->getID());
          return $count;
       }
    }
@@ -67,7 +67,7 @@ class PluginWarrantycheckTicket extends CommonDBTM {
 
       $request = [
          'SELECT' => '*',
-         'FROM'   => 'glpi_plugin_warrantycheck_surveys',
+         'FROM'   => 'glpi_plugin_warrantycheck_tickets',
          'WHERE'  => [
             'OR' => [
                ['tickets_id' => $ID],                             // cas: "3"
@@ -87,55 +87,108 @@ class PluginWarrantycheckTicket extends CommonDBTM {
       return $vouchers;
    }
 
-   static function showForTicket(Ticket $ticket) { // formulaire sur le ticket
-      global $DB, $CFG_GLPI;
+   static function showForTicket(Ticket $ticket) {
+      global $DB;
+   
+      $ID = $ticket->getID();
+      $warranties = self::getAllForTicket($ID);
+      $count = count($warranties);
+      $rand = mt_rand();
+   
+      if (!$ticket->can($ID, READ)) return false;
 
-      $ID = $ticket->getField('id'); // recupération de l'id ticket
-      
+      if (!Session::haveRight(Entity::$rightname, READ)) return false;
+   
+      $canedit = Session::haveRight(Entity::$rightname, PURGE)
+         || ($ticket->canEdit($ID) && !in_array($ticket->fields['status'], array_merge(Ticket::getSolvedStatusArray(), Ticket::getClosedStatusArray())));
+   
+      echo "<div class='spaced'>";
       echo "<table class='tab_cadre_fixe'>";
-      echo "<tr class='noHover'>
-              <th>Numéro de série</th>
-              <th>Modèle</th>
-              <th>Fabricant</th>
-              <th>Date de début</th>
-              <th>Date de fin</th>
-              <th>Statut de garantie</th>
-            </tr>";
-      
-      foreach (self::getAllForTicket($ID) as $data) {
-          $serial = $data['serial_number'] ?? '';
-          $model = $data['model'] ?? '';
-          $fabricant = $data['fabricant'] ?? '';
-          $start = $data['date_start'] ?? '';
-          $end = $data['date_end'] ?? '';
-      
-          $now = time();
-          $status = "Inconnu";
-          $color = "lightgray";
-      
-          if (!empty($end)) {
-              $timestamp_end = strtotime($end);
-              if ($timestamp_end < $now) {
+      echo "<tr class='tab_bg_1'><th colspan='2'>" . __('Informations de garantie', 'plugin_warrantycheck') . "</th></tr>";
+      echo "</table></div>";
+   
+      if ($count > 0) {
+         if ($canedit) {
+            echo Html::getOpenMassiveActionsForm('mass'.__CLASS__.$rand);
+            $massiveactionparams = [
+               'num_displayed'    => $count,
+               'container'        => 'mass'.__CLASS__.$rand,
+               'rand'             => $rand,
+               'display'          => false,
+               'specific_actions' => [
+                  'purge' => _x('button', 'Supprimer définitivement de GLPI')
+               ]
+            ];
+            echo Html::showMassiveActions($massiveactionparams);
+         }
+   
+         echo "<table class='tab_cadre_fixehov'>";
+         $header = "<tr>";
+   
+         if ($canedit) {
+            $header .= "<th width='10'>" . Html::getCheckAllAsCheckbox('mass'.__CLASS__.$rand) . "</th>";
+         }
+   
+         $header .= "<th class='center'>" . __('Numéro de série') . "</th>";
+         $header .= "<th class='center'>" . __('Modèle') . "</th>";
+         $header .= "<th class='center'>" . __('Fabricant') . "</th>";
+         $header .= "<th class='center'>" . __('Date de début') . "</th>";
+         $header .= "<th class='center'>" . __('Date de fin') . "</th>";
+         $header .= "<th class='center'>" . __('Statut de garantie') . "</th>";
+         $header .= "</tr>";
+   
+         echo $header;
+   
+         foreach ($warranties as $data) {
+            $id         = $data['id'];
+            $serial     = $data['serial_number'] ?? '';
+            $model      = $data['model'] ?? '';
+            $fabricant  = $data['fabricant'] ?? '';
+            $start      = Html::convDate($data['date_start'] ?? '');
+            $end        = Html::convDate($data['date_end'] ?? '');
+   
+            $status = "Inconnu";
+            $color  = "lightgray";
+   
+            if (!empty($data['date_end'])) {
+               $timestamp_end = strtotime($data['date_end']);
+               if ($timestamp_end < time()) {
                   $status = "Expirée";
-                  $color = "red";
-              } else {
+                  $color  = "red";
+               } else {
                   $status = "Active";
-                  $color = "green";
-              }
-          }
-      
-          echo "<tr class='noHover'>
-                  <td>$serial</td>
-                  <td>$model</td>
-                  <td>$fabricant</td>
-                  <td>" . Html::convDate($start) . "</td>
-                  <td>" . Html::convDate($end) . "</td>
-                  <td><span style='color:white; background-color:$color; padding:2px 6px; border-radius:6px;'>$status</span></td>
-               </tr>";
+                  $color  = "green";
+               }
+            }
+   
+            echo "<tr class='tab_bg_2'>";
+   
+            if ($canedit) {
+               echo "<td>" . Html::getMassiveActionCheckBox(__CLASS__, $id) . "</td>";
+            }
+   
+            echo "<td class='center'>$serial</td>";
+            echo "<td class='center'>$model</td>";
+            echo "<td class='center'>$fabricant</td>";
+            echo "<td class='center'>$start</td>";
+            echo "<td class='center'>$end</td>";
+            echo "<td class='center'><span style='color:white; background:$color; padding:2px 6px; border-radius:6px;'>$status</span></td>";
+            echo "</tr>";
+         }
+   
+         echo "</table>";
+   
+         if ($canedit) {
+            $massiveactionparams['ontop'] = false;
+            echo Html::showMassiveActions($massiveactionparams);
+            echo Html::closeForm(false);
+         }
+   
+      } else {
+         echo "<p class='center b'>" . __('Aucune garantie enregistrée pour ce ticket.', 'plugin_warrantycheck') . "</p>";
       }
-      
-      echo "</table>";
    }
+   
 
    static function postShowItemNewTaskWARRANTYCHECK($params) {
       global $DB, $CFG_GLPI, $warrantycheck;
@@ -315,20 +368,19 @@ class PluginWarrantycheckTicket extends CommonDBTM {
       $default_collation = DBConnection::getDefaultCollation();
       $default_key_sign = DBConnection::getDefaultPrimaryKeySignOption();
 
-      $table = 'glpi_plugin_warrantycheck_surveys';
+      $table = 'glpi_plugin_warrantycheck_tickets';
 
       if (!$DB->tableExists($table)) {
          $query = "CREATE TABLE IF NOT EXISTS `$table` (
                      `id` int {$default_key_sign} NOT NULL auto_increment,
-                     `tickets_id` VARCHAR(255) {$default_key_sign} NOT NULL DEFAULT '0',
+                     `tickets_id` VARCHAR(255) NOT NULL DEFAULT '0',
                      `serial_number` VARCHAR(255) NULL,
                      `date_start` TIMESTAMP NULL,
                      `date_end` TIMESTAMP NULL,
                      `model` VARCHAR(255) NULL,
                      `fabricant` VARCHAR(255) NULL,
                      PRIMARY KEY (`id`),
-                     KEY `tickets_id` (`tickets_id`),
-                     KEY `entities_id` (`entities_id`)
+                     KEY `tickets_id` (`tickets_id`)
                   ) ENGINE=InnoDB DEFAULT CHARSET={$default_charset} COLLATE={$default_collation} ROW_FORMAT=DYNAMIC;";
          $DB->query($query) or die($DB->error());
       }
@@ -336,7 +388,7 @@ class PluginWarrantycheckTicket extends CommonDBTM {
 
    static function uninstall(Migration $migration) {
 
-      $table = 'glpi_plugin_warrantycheck_surveys';
+      $table = 'glpi_plugin_warrantycheck_tickets';
       $migration->dropTable($table);
    }
 }

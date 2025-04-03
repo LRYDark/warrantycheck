@@ -23,7 +23,7 @@ if (isset($_POST['save_selection']) && isset($_POST['tickets_id'])) {
 
     // Récupérer les éléments déjà en base
     $current_items = [];
-    $result = $DB->query("SELECT url_bl, bl FROM glpi_plugin_warrantycheck_surveys WHERE tickets_id = $ticketId AND signed = 0");
+    $result = $DB->query("SELECT url_bl, bl FROM glpi_plugin_warrantycheck_tickets WHERE tickets_id = $ticketId AND signed = 0");
     while ($data = $result->fetch_assoc()) {
         $current_items[] = $data['url_bl'].'/'.$data['bl'];
     }
@@ -53,10 +53,10 @@ if (isset($_POST['save_selection']) && isset($_POST['tickets_id'])) {
                 $item = $matches[2]; // zzzz
             }    
             
-            $existedoc = $DB->query("SELECT tickets_id, bl FROM `glpi_plugin_warrantycheck_surveys` WHERE bl = '".$DB->escape($item)."'")->fetch_object(); // Récupérer les informations du document
+            $existedoc = $DB->query("SELECT tickets_id, bl FROM `glpi_plugin_warrantycheck_tickets` WHERE bl = '".$DB->escape($item)."'")->fetch_object(); // Récupérer les informations du document
             if(empty($existedoc->bl)){
-                // Insérer le ticket et l'ID de document dans glpi_plugin_warrantycheck_surveys
-                if (!$DB->query("INSERT INTO glpi_plugin_warrantycheck_surveys (tickets_id, entities_id, url_bl, bl, doc_url, tracker) VALUES ($ticketId, $entityId, '".$DB->escape($itemUrl)."', '".$DB->escape($item)."', '$fileUrl', '$tracker')")) {
+                // Insérer le ticket et l'ID de document dans glpi_plugin_warrantycheck_tickets
+                if (!$DB->query("INSERT INTO glpi_plugin_warrantycheck_tickets (tickets_id, entities_id, url_bl, bl, doc_url, tracker) VALUES ($ticketId, $entityId, '".$DB->escape($itemUrl)."', '".$DB->escape($item)."', '$fileUrl', '$tracker')")) {
                     Session::addMessageAfterRedirect(__("Erreur lors de l'ajout", 'warrantycheck'), false, ERROR);
                     $success = false; // Si l'insertion échoue, mettre le drapeau de succès à false
                 }
@@ -66,7 +66,7 @@ if (isset($_POST['save_selection']) && isset($_POST['tickets_id'])) {
                     $ticketId = intval($ticketId);
 
                     // Préparer la requête SQL
-                    $sql = "UPDATE glpi_plugin_warrantycheck_surveys 
+                    $sql = "UPDATE glpi_plugin_warrantycheck_tickets 
                             SET tickets_id = ?, 
                                 url_bl = ?,
                                 tracker = ?
@@ -109,7 +109,7 @@ if (isset($_POST['save_selection']) && isset($_POST['tickets_id'])) {
         $ticketId = intval($ticketId);
 
         // Préparer la requête SQL
-        $sql = "UPDATE glpi_plugin_warrantycheck_surveys 
+        $sql = "UPDATE glpi_plugin_warrantycheck_tickets 
                 SET tickets_id = ?
                 WHERE bl = ?";
 

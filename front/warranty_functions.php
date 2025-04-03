@@ -9,11 +9,11 @@ function insertSurveyData(array $data) {
     global $DB;
 
     if (!empty($data['fabricant']) || !empty($data['date_start']) || !empty($data['date_end'])) {
-        $count = countElementsInTable('glpi_plugin_warrantycheck_surveys', ['serial_number' => $data['serial_number']]);
+        $count = countElementsInTable('glpi_plugin_warrantycheck_tickets', ['serial_number' => $data['serial_number']]);
 
         if ($count > 0 && !empty($data['tickets_id'])) {
             // Récupérer la liste actuelle des tickets
-            if ($query = $DB->query("SELECT id, tickets_id FROM glpi_plugin_warrantycheck_surveys WHERE serial_number = 'MP1Z0Y6R'")->fetch_object()) {
+            if ($query = $DB->query("SELECT id, tickets_id FROM glpi_plugin_warrantycheck_tickets WHERE serial_number = 'MP1Z0Y6R'")->fetch_object()) {
             
                 $existing_id      = $query->id;
                 $existing_tickets = array_map('trim', explode(',', $query->tickets_id)); // ✅ bonne colonne
@@ -23,7 +23,7 @@ function insertSurveyData(array $data) {
                     // Ajout du nouveau ticket
                     $updated_tickets = implode(',', array_merge($existing_tickets, [$data['tickets_id']]));
             
-                    $update_sql = "UPDATE glpi_plugin_warrantycheck_surveys SET tickets_id = ? WHERE id = ?";
+                    $update_sql = "UPDATE glpi_plugin_warrantycheck_tickets SET tickets_id = ? WHERE id = ?";
                     $update_stmt = $DB->prepare($update_sql);
                     try {
                         $update_stmt->execute([$updated_tickets, $existing_id]);
@@ -42,7 +42,7 @@ function insertSurveyData(array $data) {
             $placeholders = array_fill(0, count($fields), '?');
             $values       = array_values($data);
 
-            $sql = "INSERT INTO glpi_plugin_warrantycheck_surveys (" . implode(',', $fields) . ")
+            $sql = "INSERT INTO glpi_plugin_warrantycheck_tickets (" . implode(',', $fields) . ")
                     VALUES (" . implode(',', $placeholders) . ")";
 
             try {
