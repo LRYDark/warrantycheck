@@ -10,6 +10,8 @@ function plugin_warrantycheck_install() { // fonction installation du plugin
          `users_id` int unsigned NOT NULL default '0',
          `warrantypopup` int NULL,
          `repeatpopup` int NULL,
+         `toastdelay` int NULL,
+         `checkvalidate` int NULL,
          PRIMARY KEY  (`id`),
          KEY `users_id` (`users_id`)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci ROW_FORMAT=DYNAMIC;";

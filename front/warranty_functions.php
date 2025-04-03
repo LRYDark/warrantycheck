@@ -1,10 +1,39 @@
 <?php
+include('../../../inc/includes.php');
+
 if (!defined('GLPI_ROOT')) {
     die("Sorry. You can't access directly to this file");
 }
 
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
+function insertSurveyData(array $data) {
+    global $DB;
+
+    // Champs obligatoires
+    if (!empty($data['fabricant']) || !empty($data['date_start']) || !empty($data['date_end'])) {
+        if (countElementsInTable('glpi_plugin_warrantycheck_surveys', ['serial_number' => $data['serial_number']]) == 0) {
+            // Valeurs par défaut si non fournies
+            $data['entities_id']    = $data['entities_id'] ?? 0;
+            $data['tickets_id']     = $data['tickets_id']  ?? 0;
+            $data['fabricant']      = $data['fabricant']  ?? 'Inconnu';
+            $data['model']          = $data['model']  ?? '';
+
+            // Construction des champs et des valeurs dynamiquement
+            $fields = array_keys($data);
+            $placeholders = array_fill(0, count($fields), '?');
+            $values = array_values($data);
+
+            $sql = "INSERT INTO glpi_plugin_warrantycheck_surveys (" . implode(',', $fields) . ")
+                    VALUES (" . implode(',', $placeholders) . ")";
+
+            try {
+                $stmt = $DB->prepare($sql);
+                $stmt->execute($values);
+            }catch (Throwable $e) {
+                Toolbox::logDebug("PluginWarrantyCheck", "Insert error: " . $e->getMessage());
+            }
+        }
+    }
+}
 
 function select($serial, $Manufacturer){
     // Appeler la méthode appropriée en fonction du constructeur

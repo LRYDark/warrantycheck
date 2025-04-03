@@ -29,7 +29,7 @@ function findSerialNumbers(string $text): array {
     $results = [];
 
     // 🧠 Indices sémantiques
-    $hints = ['numéro de série', 'numero de serie', 'n° de série', 'serial', 'serial number', 's/n', 'sn', 'seriennummer'];
+    $hints = ['numéro de série', 'numero de serie', 'n° de série', 'serial', 'serial number', 's/n', 'sn', 'seriennummer', 'N/S', 'S/N', 'SN' , 'NUMERO DE SERIE', 'sérial number'];
     $soft_hints = ['et', 'ainsi que', 'plus', 'also', 'and', 'auch'];
 
     foreach ($words as $i => $word) {
@@ -85,6 +85,7 @@ function findSerialNumbers(string $text): array {
 }
 
 $Ticket_id = (int)($_GET['ticket_id'] ?? 0);
+$entities_id = (int)($_GET['entities_id'] ?? 0);
 
 if ($Ticket_id <= 0) {
     echo json_encode([]);
@@ -122,19 +123,35 @@ require_once PLUGIN_WARRANTYCHECK_DIR . '/front/warranty_functions.php';
 
 foreach ($liste as $serial) {
    $infos = detectBrand($serial, $Manufacturer = null);
-   if (isset($infos) && is_array($infos) && array_key_exists('fabricant', $infos) && $infos['fabricant'] != null){
+
+    if (isset($infos) && is_array($infos) && isset($infos['fabricant'], $infos['warranty_start'], $infos['warranty_end'], $infos['serial'])) {
+        insertSurveyData([
+            'entities_id'   => $entities_id,
+            'tickets_id'    => $Ticket_id,
+            'serial_number' => $infos['serial'],
+            'model'         => $infos['model'] ?? '',
+            'fabricant'     => $infos['fabricant'],
+            'date_start'    => $infos['warranty_start'],
+            'date_end'      => $infos['warranty_end'],
+        ]);
+    }
+
+    if (isset($infos) && is_array($infos) && array_key_exists('fabricant', $infos) && $infos['fabricant'] != null){
         $resultats[] = [
             'serial' => $serial,
             'fabricant' => $infos['fabricant'] ?? '',
-            'warranty_status' => $infos['warranty_status'] ?? ''
+            'warranty_status' => $infos['warranty_status'] ?? '',
+            'debug' => $infos // facultatif si tu veux tout retourner
         ];
-   }else{
+    }else{
         $resultats[] = [
             'serial' => $serial,
-            'warranty_status' => 'Inconnu'
+            'warranty_status' => 'Inconnu',
+            'debug' => $infos // facultatif si tu veux tout retourner
         ];
-   }
+    }
 }
 
 header('Content-Type: application/json');
 echo json_encode($resultats);
+

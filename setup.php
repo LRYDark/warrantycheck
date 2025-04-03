@@ -35,12 +35,11 @@ function plugin_init_warrantycheck() { // fonction glpi d'initialisation du plug
          $PLUGIN_HOOKS['add_javascript']['warrantycheck'] = ['scripts/scripts-warrantycheck.js'];
       }
 
-      //Plugin::registerClass('PluginWarrantycheckTicket', ['addtabon' => 'Ticket']);
+      Plugin::registerClass('PluginWarrantycheckTicket', ['addtabon' => 'Ticket']);
 
       $PLUGIN_HOOKS['config_page']['warrantycheck'] = 'front/config.form.php'; // initialisation de la page config
       Plugin::registerClass('PluginWarrantycheckConfig', ['addtabon' => 'Config']); // ajout de la de la class config dans glpi
 
-      //$PLUGIN_HOOKS['post_show_item']['warrantycheck'] = ['PluginWarrantycheckTicket', 'postShowItemNewTaskWARRANTYCHECK']; // initialisation de la class
       $PLUGIN_HOOKS['pre_show_item']['warrantycheck'] = ['PluginWarrantycheckTicket', 'postShowItemNewTaskWARRANTYCHECK']; // initialisation de la class
       Plugin::registerClass('PluginWarrantycheckPreference',['addtabon' => 'Preference']);
    }

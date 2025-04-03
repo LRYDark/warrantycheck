@@ -54,6 +54,7 @@ class PluginWarrantycheckGenerateCRI extends CommonGLPI {
          
          global $DB, $CFG_GLPI;
          $UserID = Session::getLoginUserID();
+         $result['serial'] = null;
 
          // Formulaire
          echo '<div class="card mb-4 shadow-sm w-100">';
@@ -77,7 +78,6 @@ class PluginWarrantycheckGenerateCRI extends CommonGLPI {
          echo '<div class="card-body">';
             
             echo "<form method='get' action='" . self::getFormUrl() . "' class='mb-4'>";
-
                echo '<div class="d-flex flex-wrap justify-content-center">';
                   // Première ligne (HP, Dell, Lenovo)
                   echo '<div class="form-check form-check-inline">';
@@ -110,7 +110,7 @@ class PluginWarrantycheckGenerateCRI extends CommonGLPI {
                      echo '<label class="form-check-label" for="inlineRadio6">Auto</label>';
                   echo '</div>';
                echo '</div>';
-
+               
                echo '<br>';
                echo '<div class="d-flex justify-content-center">';
                   echo '<div class="input-group" style="max-width: 600px; width: 100%;">';
@@ -165,6 +165,15 @@ class PluginWarrantycheckGenerateCRI extends CommonGLPI {
                }
                echo '</div>'; // row
                echo '</div></div>'; // card-body + card
+
+               require_once '../front/warranty_functions.php';
+               insertSurveyData([
+                  'serial_number' => $result['serial'],
+                  'model'         => $result['model'],
+                  'fabricant'     => $result['fabricant'],
+                  'date_start'    => $result['warranty_start'],
+                  'date_end'      => $result['warranty_end'],
+               ]);
             } else {
                echo '<div class="alert alert-danger mt-4">Erreur : Aucune donnée retournée ou numéro invalide.</div>';
             }
@@ -173,6 +182,8 @@ class PluginWarrantycheckGenerateCRI extends CommonGLPI {
                echo '<div class="alert alert-danger mt-4">Erreur : Aucune donnée retournée (Erreur serveur '.$_GET['fabricant'].'), Fabricant non détécté ou numéro invalide.</div>';
             }
          }
+
+         echo countElementsInTable('glpi_plugin_warrantycheck_surveys', ['serial_number' => 'MP1Z0Y6R']);
 
          $SN = $result['serial'];
 

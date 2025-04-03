@@ -53,8 +53,10 @@ class PluginWarrantycheckPreference extends CommonDBTM {
 
       $self                                  = new self();
       $input["users_id"]                     = $users_id;
-      $input["warrantypopup"]                = 0;
-      $input["repeatpopup"]                  = 1;
+      $input["warrantypopup"]                = 1;
+      $input["repeatpopup"]                  = 0;
+      $input["checkvalidate"]                = 0;
+      $input["toastdelay"]                   = 60;
       return $self->add($input);
    }
 
@@ -96,11 +98,52 @@ class PluginWarrantycheckPreference extends CommonDBTM {
       Dropdown::showYesNo("warrantypopup", $self->fields["warrantypopup"]);
       echo "</td></tr>";
 
-      echo "<tr class='tab_bg_1 top'><td>" . __('Répétition de la PopUp quand le ticket à déjà été ouvert', 'rp') . "</td>";
+      echo "<tr class='tab_bg_1 top'><td>" . __('Ne pas réafficher la popup pendant 15 minutes après la première <br> ouverture du ticket', 'rp') . "</td>";
       echo "<td>";
       Dropdown::showYesNo("repeatpopup", $self->fields["repeatpopup"]);
       echo "</td></tr>";
+      
+      echo "<tr class='tab_bg_1 top'><td>" . __('Afficher le message "Aucun numéro de série trouvé"', 'rp') . "</td>";
+      echo "<td>";
+      Dropdown::showYesNo("checkvalidate", $self->fields["checkvalidate"]);
+      echo "</td></tr>";
 
+      echo "<tr class='tab_bg_1 top'><td>" . __("Temps d'affichage de la PopUp", 'rp') . "</td>";
+      echo "<td>";
+         // Générer les libellés personnalisés pour chaque valeur
+         $choices = [];
+
+         // ➤ 10s à 60s → pas de 10s
+         for ($i = 10; $i <= 60; $i += 10) {
+            $choices[$i] = "$i secondes";
+         }
+         
+         // ➤ 1 min (60s) à 10 min (600s) → pas de 1 min
+         for ($i = 60; $i <= 600; $i += 60) {
+            $min = $i / 60;
+            $choices[$i] = "$min min";
+         }
+         
+         // ➤ 20 min (1200s) à 120 min (7200s) → pas de 10 min
+         for ($i = 1200; $i <= 7200; $i += 600) {
+            $min = $i / 60;
+            if ($min < 60) {
+               $choices[$i] = "$min min";
+            } else {
+               $h = floor($min / 60);
+               $rest = $min % 60;
+               $label = "{$h} h";
+               if ($rest > 0) $label .= " {$rest} min";
+               $choices[$i] = $label;
+            }
+         }
+         
+         Dropdown::showFromArray('toastdelay', $choices, [
+            'value' => $self->fields['toastdelay'],
+            'width' => '30%'
+         ]);
+
+      echo "</td></tr>";
 
       echo "<tr class='tab_bg_1 center'><td colspan='2'>";
       echo Html::submit(_sx('button', 'Post'), ['name' => 'update_user_preferences_warrantycheck', 'class' => 'btn btn-primary']);
