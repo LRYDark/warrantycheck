@@ -19,14 +19,6 @@ function plugin_warrantycheck_install() { // fonction installation du plugin
       $DB->query($query) or die("error creating glpi_plugin_warrantycheck_preferences " . $DB->error());
    }
    
-   $rep_files_warrantycheck = GLPI_PLUGIN_DOC_DIR . "/warrantycheck";
-   if (!is_dir($rep_files_warrantycheck))
-      mkdir($rep_files_warrantycheck);
-
-   $rep_files_warrantycheck = GLPI_PLUGIN_DOC_DIR . "/warrantycheck/FilesTempSharePoint";
-   if (!is_dir($rep_files_warrantycheck))
-      mkdir($rep_files_warrantycheck);
-
    $migration = new Migration(PLUGIN_WARRANTYCHECK_VERSION);
 
    // Parse inc directory
@@ -50,6 +42,7 @@ function plugin_warrantycheck_install() { // fonction installation du plugin
 }
 
 function plugin_warrantycheck_uninstall() { // fonction desintallation du plugin
+   global $DB;
 
    $rep_files_rp = GLPI_PLUGIN_DOC_DIR . "/warrantycheck";
    Toolbox::deleteDir($rep_files_rp);
@@ -78,6 +71,12 @@ function plugin_warrantycheck_uninstall() { // fonction desintallation du plugin
       }
       PluginWarrantycheckProfile::removeRightsFromSession();
 
+   $tables = array("glpi_plugin_warrantycheck_preferences");
+
+   foreach ($tables as $table) {
+      $DB->query("DROP TABLE IF EXISTS `$table`;");
+   }
+   
    return true;
 }
 
