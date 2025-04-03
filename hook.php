@@ -71,6 +71,7 @@ function plugin_warrantycheck_uninstall() { // fonction desintallation du plugin
       }
       PluginWarrantycheckProfile::removeRightsFromSession();
 
+   //DELETE TABLE PREFERENCES
    $tables = array("glpi_plugin_warrantycheck_preferences");
 
    foreach ($tables as $table) {
