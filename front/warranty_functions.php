@@ -212,7 +212,13 @@ class HpWarrantyChecker extends CommonDBTM {
             CURLOPT_SSL_VERIFYPEER => false
         ]);
         $response = curl_exec($curl);
+        $http_code = curl_getinfo($curl, CURLINFO_HTTP_CODE);
         curl_close($curl);
+
+        if (in_array($http_code, [502, 404])) {
+            Session::addMessageAfterRedirect(__('Erreur : API HP non disponible (code '.$http_code.')', 'warrantycheck'), true, ERROR);
+            exit; // arrête immédiatement la classe
+        }
 
         $data = json_decode($response, true);
         return $data['access_token'] ?? null;
@@ -280,7 +286,14 @@ class HpWarrantyChecker extends CommonDBTM {
             CURLOPT_SSL_VERIFYPEER => false
         ]);
         $response = curl_exec($curl);
+        $http_code = curl_getinfo($curl, CURLINFO_HTTP_CODE);
         curl_close($curl);
+    
+        if (in_array($http_code, [502, 404])) {
+            Session::addMessageAfterRedirect(__('Erreur : création du job impossible (code '.$http_code.')', 'warrantycheck'), true, ERROR);
+            exit;
+        }
+
         $data = json_decode($response, true);
         return $data['jobId'] ?? null;
     }
@@ -300,7 +313,13 @@ class HpWarrantyChecker extends CommonDBTM {
             CURLOPT_SSL_VERIFYPEER => false
         ]);
         $response = curl_exec($curl);
+        $http_code = curl_getinfo($curl, CURLINFO_HTTP_CODE);
         curl_close($curl);
+
+        if (in_array($http_code, [502, 404])) {
+            Session::addMessageAfterRedirect(__('Erreur : récupération des résultats impossible (code '.$http_code.')', 'warrantycheck'), true, ERROR);
+            exit;
+        }
         return json_decode($response, true);
     }
 }
@@ -326,7 +345,14 @@ class DellWarrantyChecker extends CommonDBTM {
                 'content' => $data
             ]
         ]);
-        $result = file_get_contents($this->token_url, false, $context);
+        $result = @file_get_contents($this->token_url, false, $context);
+        $http_code = $this->getHttpResponseCode();
+
+        if (in_array($http_code, [502, 404])) {
+            Session::addMessageAfterRedirect(__('Erreur : API Dell non disponible (code '.$http_code.')', 'warrantycheck'), true, ERROR);
+            exit;
+        }
+
         $response = json_decode($result, true);
         return $response['access_token'] ?? null;
     }
@@ -378,6 +404,17 @@ class DellWarrantyChecker extends CommonDBTM {
     private function extractProductRef($desc) {
         if (preg_match('/\(([^)]+)\)/', $desc, $m)) return $m[1];
         return '';
+    }
+
+    private function getHttpResponseCode() {
+        global $http_response_header;
+        if (!isset($http_response_header) || !is_array($http_response_header)) return 0;
+        foreach ($http_response_header as $header) {
+            if (preg_match('#HTTP/\d+\.\d+\s+(\d+)#', $header, $matches)) {
+                return (int)$matches[1];
+            }
+        }
+        return 0;
     }
 }
 
