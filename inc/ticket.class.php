@@ -270,7 +270,7 @@ class PluginWarrantycheckTicket extends CommonDBTM {
                      <div class="toast-container" id="warranty-toast-container" style="display:none;">
                         <div id="myToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
                            <div class="toast-header bg-dark text-white">
-                              <strong class="mr-auto">Numéro de série détecté dans le ticket</strong>
+                              <strong class="mr-auto">Numéros de série détecté dans le ticket</strong>
                                  <button type="button" class="close" aria-label="Close">
                                     <span aria-hidden="true" class="text-white">&times;</span>
                                  </button>
@@ -280,6 +280,7 @@ class PluginWarrantycheckTicket extends CommonDBTM {
                                  <div class="spinner-border text-primary" role="status">
                                     <span class="visually-hidden">Chargement...</span>
                                  </div>
+                                 <div>Recheche des numéros de série...</div>
                                  <div>Chargement des données de garantie...</div>
                               </div>
                            </div>

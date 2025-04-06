@@ -28,7 +28,7 @@ $UserID = Session::getLoginUserID();
    unset($_SESSION[$serial]);
 
    // Redirection vers front/generatecri.php avec la clé
-   Html::redirect('generatecri.php?cache_id=' . $cle . '&fabricant=' . $fabricant);
+   Html::redirect('generatecri.php?cache_id=' . $cle . '&fabricant=' . $fabricant . '&serial=' . $serial);
 //}
 
 if (Session::getCurrentInterface() == 'central') {

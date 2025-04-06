@@ -119,35 +119,46 @@ $liste = array_map(function($s) {
 
 $resultats = [];
 require_once PLUGIN_WARRANTYCHECK_DIR . '/front/warranty_functions.php';
+$group   = new PluginWarrantycheckPreference();
+$result  = $group->find(['users_id' => Session::getLoginUserID()]);
+$statuswarranty = $result[1]['statuswarranty'];
 
 foreach ($liste as $serial) {
-   $infos = detectBrand($serial, $Manufacturer = null);
 
-    if (isset($infos) && is_array($infos) && isset($infos['fabricant'], $infos['warranty_start'], $infos['warranty_end'], $infos['serial'])) {
-        insertSurveyData([
-            'tickets_id'    => $Ticket_id,
-            'serial_number' => $infos['serial'],
-            'model'         => $infos['model'] ?? '',
-            'fabricant'     => $infos['fabricant'],
-            'date_start'    => $infos['warranty_start'],
-            'date_end'      => $infos['warranty_end'],
-        ]);
-    }
+    if($statuswarranty === 1){
+        $infos = detectBrand($serial, $Manufacturer = null);
 
-    if (isset($infos) && is_array($infos) && array_key_exists('fabricant', $infos) && $infos['fabricant'] != null){
-        $resultats[] = [
-            'serial' => $serial,
-            'fabricant' => $infos['fabricant'] ?? '',
-            'warranty_status' => $infos['warranty_status'] ?? '',
-            'debug' => $infos // facultatif si tu veux tout retourner
-        ];
+        if (isset($infos) && is_array($infos) && isset($infos['fabricant'], $infos['warranty_start'], $infos['warranty_end'], $infos['serial'])) {
+            insertSurveyData([
+                'tickets_id'    => $Ticket_id,
+                'serial_number' => $infos['serial'],
+                'model'         => $infos['model'] ?? '',
+                'fabricant'     => $infos['fabricant'],
+                'date_start'    => $infos['warranty_start'],
+                'date_end'      => $infos['warranty_end'],
+            ]);
+        }
+    
+        if (isset($infos) && is_array($infos) && array_key_exists('fabricant', $infos) && $infos['fabricant'] != null){
+            $resultats[] = [
+                'serial' => $serial,
+                'fabricant' => $infos['fabricant'] ?? '',
+                'warranty_status' => $infos['warranty_status'] ?? '',
+                'debug' => $infos // facultatif si tu veux tout retourner
+            ];
+        }else{
+            $resultats[] = [
+                'serial' => $serial,
+                'warranty_status' => 'Inconnu ou API erreur',
+                'debug' => $infos // facultatif si tu veux tout retourner
+            ];
+        }
     }else{
         $resultats[] = [
             'serial' => $serial,
-            'warranty_status' => 'Inconnu ou API erreur',
-            'debug' => $infos // facultatif si tu veux tout retourner
         ];
     }
+
 }
 
 header('Content-Type: application/json');

@@ -61,6 +61,12 @@ class PluginWarrantycheckGenerateCRI extends CommonGLPI {
             $SN = $result['serial'];
          }
 
+         if(empty($result['serial'])){
+            if(isset($_GET['serial'])){
+               $SN = $_GET['serial'];
+            }
+         }
+
          // Formulaire
          echo '<div class="card mb-4 shadow-sm w-100">';
          echo '<div class="card-header bg-secondary text-white fw-bold">';
@@ -119,7 +125,7 @@ class PluginWarrantycheckGenerateCRI extends CommonGLPI {
                echo '<br>';
                echo '<div class="d-flex justify-content-center">';
                   echo '<div class="input-group" style="max-width: 600px; width: 100%;">';
-                     echo '<input type="text" name="serial" id="serial" class="form-control" placeholder="Numéro de série" required>';
+                     echo '<input type="text" name="serial" id="serial" class="form-control" placeholder="Numéro de série" value="'.$SN.'" required>';
                      echo '<button type="submit" name="generatecri" id="sig-submitBtn" class="btn btn-primary">';
                         echo __('Vérifier la garantie');
                      echo '</button>';

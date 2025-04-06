@@ -55,7 +55,8 @@ class PluginWarrantycheckPreference extends CommonDBTM {
       $input["users_id"]                     = $users_id;
       $input["warrantypopup"]                = 1;
       $input["repeatpopup"]                  = 0;
-      $input["checkvalidate"]                = 0;
+      $input["checkvalidate"]                = 1;
+      $input["statuswarranty"]               = 0;
       $input["toastdelay"]                   = 60;
       return $self->add($input);
    }
@@ -93,12 +94,12 @@ class PluginWarrantycheckPreference extends CommonDBTM {
 
       echo "<table class='tab_cadre_fixe' style='margin: 0; margin-top: 5px;'>\n";
 
-      echo "<tr class='tab_bg_1 top'><td>" . __('Analyse de la garantie dans les tickets', 'rp') . "</td>";
+      echo "<tr class='tab_bg_1 top'><td>" . __('Rechecher des numéros de serie dans les tickets', 'rp') . "</td>";
       echo "<td>";
       Dropdown::showYesNo("warrantypopup", $self->fields["warrantypopup"]);
       echo "</td></tr>";
 
-      echo "<tr class='tab_bg_1 top'><td>" . __('Ne pas réafficher la popup pendant 15 minutes après la première <br> ouverture du ticket', 'rp') . "</td>";
+      echo "<tr class='tab_bg_1 top'><td>" . __('Ne pas réafficher la PopUP pendant 15 minutes après la première ouverture du ticket', 'rp') . "</td>";
       echo "<td>";
       Dropdown::showYesNo("repeatpopup", $self->fields["repeatpopup"]);
       echo "</td></tr>";
@@ -106,6 +107,13 @@ class PluginWarrantycheckPreference extends CommonDBTM {
       echo "<tr class='tab_bg_1 top'><td>" . __('Afficher le message "Aucun numéro de série trouvé"', 'rp') . "</td>";
       echo "<td>";
       Dropdown::showYesNo("checkvalidate", $self->fields["checkvalidate"]);
+      echo "</td></tr>";
+
+      echo "<tr class='tab_bg_1 top'><td>" . __('Afficher le status de garantie dans la PopUp', 'rp') . "</td>";
+      echo "<td>";
+      
+      Dropdown::showYesNo("statuswarranty", $self->fields["statuswarranty"]);
+      echo "  (Si Oui, L’appel à l’API de garantie peut entraîner un très léger ralentissement dans les tickets)";
       echo "</td></tr>";
 
       echo "<tr class='tab_bg_1 top'><td>" . __("Temps d'affichage de la PopUp", 'rp') . "</td>";
@@ -146,6 +154,7 @@ class PluginWarrantycheckPreference extends CommonDBTM {
       echo "</td></tr>";
 
       echo "<tr class='tab_bg_1 center'><td colspan='2'>";
+      echo "<br><br>";
       echo Html::submit(_sx('button', 'Post'), ['name' => 'update_user_preferences_warrantycheck', 'class' => 'btn btn-primary']);
       echo Html::hidden('id', ['value' => $ID]);
       echo "</td></tr>";
