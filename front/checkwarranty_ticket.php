@@ -144,7 +144,7 @@ foreach ($liste as $serial) {
     }else{
         $resultats[] = [
             'serial' => $serial,
-            'warranty_status' => 'Inconnu',
+            'warranty_status' => 'Inconnu ou API erreur',
             'debug' => $infos // facultatif si tu veux tout retourner
         ];
     }

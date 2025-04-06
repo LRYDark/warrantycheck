@@ -195,7 +195,7 @@ class PluginWarrantycheckTicket extends CommonDBTM {
       $config = new PluginWarrantycheckConfig();
       $group   = new PluginWarrantycheckPreference();
       $result  = $group->find(['users_id' => Session::getLoginUserID()]);
-      $VerifURL = substr($_GET['_target'], -15, null); // recupération URL
+      $VerifURL = isset($_GET['_target']) ? basename($_GET['_target']) : '';
       $checkvalidate = $result[1]['checkvalidate'];
       $toastdelay = $result[1]['toastdelay'] * 1000;
 
@@ -267,90 +267,94 @@ class PluginWarrantycheckTicket extends CommonDBTM {
                         }
                      </style>
 
-                     <div class="toast-container" style="display:none;">
+                     <div class="toast-container" id="warranty-toast-container" style="display:none;">
                         <div id="myToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
-                           <div class="toast-header">
+                           <div class="toast-header bg-dark text-white">
                               <strong class="mr-auto">Numéro de série détecté dans le ticket</strong>
-                              <button type="button" class="close" aria-label="Close">
-                                 <span aria-hidden="true">&times;</span>
-                              </button>
+                                 <button type="button" class="close" aria-label="Close">
+                                    <span aria-hidden="true" class="text-white">&times;</span>
+                                 </button>
                            </div>
                            <div class="toast-body" id="warranty_result">
+                              <div class="text-center">
+                                 <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Chargement...</span>
+                                 </div>
+                                 <div>Chargement des données de garantie...</div>
+                              </div>
                            </div>
                         </div>
                      </div>
 
                      <script>
-                        const checkValidate = <?php echo ($checkvalidate == 0 ? 'true' : 'false'); ?>;
-                        const toastDelay = <?php echo (isset($toastdelay) ? (int)$toastdelay : 30000); ?>;
+                        if (window.top === window.self) {
+                           const checkValidate = <?php echo ($checkvalidate == 0 ? 'true' : 'false'); ?>;
+                           const toastDelay = <?php echo (isset($toastdelay) ? (int)$toastdelay : 30000); ?>;
 
-                        $(document).ready(function(){
-                           const ticketID = <?php echo json_encode($_GET['id']); ?>;
-                           const entityID = <?php echo json_encode($entities_id); ?>;
+                           $(document).ready(function(){
+                              const ticketID = <?php echo json_encode($_GET['id']); ?>;
+                              const entityID = <?php echo json_encode($entities_id); ?>;
 
-                           $.ajax({
-                              url: '<?php echo $CFG_GLPI["root_doc"]; ?>/plugins/warrantycheck/front/checkwarranty_ticket.php',
-                              method: 'GET',
-                              data: {ticket_id: ticketID},
-                              success: function(data) {
-                                 console.log("Réponse brute :", data);
+                              // Affiche immédiatement le toast avec le spinner
+                              $('#warranty-toast-container').show();
+                              $('#myToast').toast({ delay: toastDelay }).toast('show');
 
-                                 let html = "";
+                              $.ajax({
+                                 url: '<?php echo $CFG_GLPI["root_doc"]; ?>/plugins/warrantycheck/front/checkwarranty_ticket.php',
+                                 method: 'GET',
+                                 data: {ticket_id: ticketID},
+                                 success: function(data) {
+                                    let html = "";
 
-                                 if (data.length === 0) {
-                                    if (!checkValidate) {
-                                       html = "Aucun numéro de série trouvé.";
-                                       $('#warranty_result').html(html);
-                                       $('.toast-container').show();
-                                       $('#myToast').toast({ delay: toastDelay }).toast('show');
+                                    if (data.length === 0) {
+                                       if (!checkValidate) {
+                                          html = "Aucun numéro de série trouvé.";
+                                          $('#warranty_result').html(html);
+                                       }else {
+                                          setTimeout(() => {
+                                             $('#myToast').toast('hide');
+                                             $('#warranty-toast-container').hide();
+                                          }, 2000);
+                                       }
+                                       return;
                                     }
-                                    // Si checkValidate = true ET aucun numéro → ne rien faire
-                                    return;
+
+                                    data.forEach(entry => {
+                                       let statusText = entry.warranty_status || null;
+                                       let fabricant = entry.fabricant || null;
+                                       let colorClass = 'badge bg-secondary';
+
+                                       if (statusText && statusText.toLowerCase().includes('active')) {
+                                          colorClass = 'badge bg-success';
+                                       } else if (statusText && statusText.toLowerCase().includes('expired')) {
+                                          colorClass = 'badge bg-danger';
+                                       }
+
+                                       const pluginUrl = '<?php echo $CFG_GLPI["root_doc"]; ?>/plugins/warrantycheck/front/generatecri.form.php';
+                                       const serialLink = `<a href="${pluginUrl}?serial=${encodeURIComponent(entry.serial)}" target="_blank">${entry.serial}</a>`;
+
+                                       html += `
+                                          <div style="margin-bottom: 6px; padding-bottom: 6px; border-bottom: 1px solid #ccc;">
+                                             <div><strong>Numéro de série :</strong> ${serialLink}</div>
+                                             ${fabricant ? `<div><strong>Fabricant :</strong> ${fabricant}</div>` : ''}
+                                             ${statusText ? `<div><strong>Statut de la garantie :</strong> <span class="${colorClass}">${statusText}</span></div>` : ''}
+                                          </div>
+                                       `;
+                                    });
+
+                                    $('#warranty_result').html(html);
+                                 },
+                                 error: function(err) {
+                                    console.error("Erreur AJAX garantie :", err);
+                                    $('#warranty_result').html("Erreur lors de la récupération des données de garantie.");
                                  }
+                              });
 
-                                 // data.length > 0 : on affiche normalement
-                                 data.forEach(entry => {
-                                    let statusText = entry.warranty_status || null;
-                                    let fabricant = entry.fabricant || null;
-                                    let colorClass = 'badge bg-secondary';
-
-                                    if (statusText && statusText.toLowerCase().includes('active')) {
-                                       colorClass = 'badge bg-success';
-                                    } else if (statusText && statusText.toLowerCase().includes('expired')) {
-                                       colorClass = 'badge bg-danger';
-                                    }
-
-                                    const pluginUrl = '<?php echo $CFG_GLPI["root_doc"]; ?>/plugins/warrantycheck/front/generatecri.form.php';
-                                    const serialLink = `<a href="${pluginUrl}?serial=${encodeURIComponent(entry.serial)}" target="_blank">${entry.serial}</a>`;
-
-                                    html += `
-                                       <div style="margin-bottom: 6px; padding-bottom: 6px; border-bottom: 1px solid #ccc;">
-                                          <div><strong>Numéro de série :</strong> ${serialLink}</div>
-                                          ${fabricant ? `<div><strong>Fabricant :</strong> ${fabricant}</div>` : ''}
-                                          ${statusText ? `<div><strong>Statut de la garantie :</strong> <span class="${colorClass}">${statusText}</span></div>` : ''}
-                                       </div>
-                                    `;
-                                 });
-
-                                 $('#warranty_result').html(html);
-                                 $('.toast-container').show();
-                                 $('#myToast').toast({ delay: toastDelay }).toast('show');
-                              },
-                              error: function(err) {
-                                 console.log("Réponse brute :", data);
-                                 console.error("❌ Erreur AJAX :", textStatus, errorThrown);
-                                 console.warn("Réponse brute :", jqXHR.responseText);
-
-                                 $('#warranty_result').html("Erreur lors de la récupération des données de garantie.");
-                                 $('.toast-container').show();
-                                 $('#myToast').toast({ delay: toastDelay }).toast('show');
-                              }
+                              $('.toast .close').on('click', function() {
+                                 $('#myToast').toast('hide');
+                              });
                            });
-
-                           $('.toast .close').on('click', function() {
-                              $('#myToast').toast('hide');
-                           });
-                        });
+                        }
                      </script>
                   <?php
                }

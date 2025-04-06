@@ -229,18 +229,37 @@ class HpWarrantyChecker extends CommonDBTM {
         $jobId = $this->createJob($serial, $product, $country);
         if (!$jobId) return null;
 
-        sleep(3);
-        $result = $this->getResults($jobId);
-        if (!$result || empty($result[0]['offers'])) return null;
+        $start = microtime(true);
+        $timeout = 5; // secondes
+        
+        do {
+            sleep(1);
+            $response = $this->getResults($jobId);
+            $lastHttpCode = $response['code'] ?? null;
+            $result = $response['data'];
+        } while ((!$result || empty($result[0]['offers'])) && (microtime(true) - $start) < $timeout);
+        
+        $is_ajax = isset($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
 
+        if (!$result || empty($result[0]['offers'])) {
+            if (!$is_ajax) {
+                Session::addMessageAfterRedirect(
+                    __('Erreur : les résultats HP ne sont pas disponibles. (code API erreur : '.$lastHttpCode.')', 'warrantycheck'),
+                    true,
+                    ERROR
+                );
+            }
+            return null;
+        }
+        
         $offers = $result[0]['offers'];
         $product = $result[0]['product'];
 
         $best = array_reduce($offers, function($carry, $item) {
             if (!isset($item['serviceObligationLineItemEndDate'])) return $carry;
             return (!$carry || $item['serviceObligationLineItemEndDate'] > $carry['serviceObligationLineItemEndDate']) ? $item : $carry;
-        });
-
+        }, null);
+        
         $start = $best['serviceObligationLineItemStartDate'] ?? '';
         $end = $best['serviceObligationLineItemEndDate'] ?? '';
         $now = date('Y-m-d');
@@ -291,7 +310,7 @@ class HpWarrantyChecker extends CommonDBTM {
     
         if (in_array($http_code, [502, 404])) {
             Session::addMessageAfterRedirect(__('Erreur API HP : création du job impossible (code '.$http_code.')', 'warrantycheck'), true, ERROR);
-            return;
+            return null;
         }
 
         $data = json_decode($response, true);
@@ -316,11 +335,11 @@ class HpWarrantyChecker extends CommonDBTM {
         $http_code = curl_getinfo($curl, CURLINFO_HTTP_CODE);
         curl_close($curl);
 
-        if (in_array($http_code, [502, 404])) {
-            Session::addMessageAfterRedirect(__('Erreur API HP : récupération des résultats impossible (code '.$http_code.')', 'warrantycheck'), true, ERROR);
-            return;
-        }
-        return json_decode($response, true);
+        // On retourne le code HTTP + les données (ou null)
+        return [
+            'code' => $http_code,
+            'data' => ($http_code === 200) ? json_decode($response, true) : null
+        ];
     }
 }
 
