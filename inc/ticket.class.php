@@ -197,6 +197,7 @@ class PluginWarrantycheckTicket extends CommonDBTM {
       $result  = $group->find(['users_id' => Session::getLoginUserID()]);
       $VerifURL = isset($_GET['_target']) ? basename($_GET['_target']) : '';
       $checkvalidate = $result[1]['checkvalidate'];
+      $statuswarranty = $result[1]['statuswarranty'];
       $toastdelay = $result[1]['toastdelay'] * 1000;
 
       $entities_id = 0;
@@ -279,9 +280,11 @@ class PluginWarrantycheckTicket extends CommonDBTM {
                               <div class="text-center">
                                  <div class="spinner-border text-primary" role="status">
                                     <span class="visually-hidden">Chargement...</span>
-                                 </div>
+                                 </div>                           
                                  <div>Recheche des numéros de série...</div>
-                                 <div>Chargement des données de garantie...</div>
+                                 <?php if ($statuswarranty === 1){ ?>
+                                    <div>Chargement des données de garantie...</div>
+                                 <?php } ?>
                               </div>
                            </div>
                         </div>
