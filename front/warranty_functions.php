@@ -217,7 +217,7 @@ class HpWarrantyChecker extends CommonDBTM {
 
         if (in_array($http_code, [502, 404])) {
             Session::addMessageAfterRedirect(__('Erreur : API HP non disponible (code '.$http_code.')', 'warrantycheck'), true, ERROR);
-            exit; // arrête immédiatement la classe
+            return; // arrête immédiatement la classe
         }
 
         $data = json_decode($response, true);
@@ -290,8 +290,8 @@ class HpWarrantyChecker extends CommonDBTM {
         curl_close($curl);
     
         if (in_array($http_code, [502, 404])) {
-            Session::addMessageAfterRedirect(__('Erreur : création du job impossible (code '.$http_code.')', 'warrantycheck'), true, ERROR);
-            exit;
+            Session::addMessageAfterRedirect(__('Erreur API HP : création du job impossible (code '.$http_code.')', 'warrantycheck'), true, ERROR);
+            return;
         }
 
         $data = json_decode($response, true);
@@ -317,8 +317,8 @@ class HpWarrantyChecker extends CommonDBTM {
         curl_close($curl);
 
         if (in_array($http_code, [502, 404])) {
-            Session::addMessageAfterRedirect(__('Erreur : récupération des résultats impossible (code '.$http_code.')', 'warrantycheck'), true, ERROR);
-            exit;
+            Session::addMessageAfterRedirect(__('Erreur API HP : récupération des résultats impossible (code '.$http_code.')', 'warrantycheck'), true, ERROR);
+            return;
         }
         return json_decode($response, true);
     }
@@ -350,7 +350,7 @@ class DellWarrantyChecker extends CommonDBTM {
 
         if (in_array($http_code, [502, 404])) {
             Session::addMessageAfterRedirect(__('Erreur : API Dell non disponible (code '.$http_code.')', 'warrantycheck'), true, ERROR);
-            exit;
+            return;
         }
 
         $response = json_decode($result, true);
