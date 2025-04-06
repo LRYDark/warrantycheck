@@ -94,7 +94,7 @@ class PluginWarrantycheckPreference extends CommonDBTM {
 
       echo "<table class='tab_cadre_fixe' style='margin: 0; margin-top: 5px;'>\n";
 
-      echo "<tr class='tab_bg_1 top'><td>" . __('Rechecher des numéros de serie dans les tickets', 'rp') . "</td>";
+      echo "<tr class='tab_bg_1 top'><td>" . __('Recherche des numéros de serie dans les tickets', 'rp') . "</td>";
       echo "<td>";
       Dropdown::showYesNo("warrantypopup", $self->fields["warrantypopup"]);
       echo "</td></tr>";
@@ -109,7 +109,7 @@ class PluginWarrantycheckPreference extends CommonDBTM {
       Dropdown::showYesNo("checkvalidate", $self->fields["checkvalidate"]);
       echo "</td></tr>";
 
-      echo "<tr class='tab_bg_1 top'><td>" . __('Afficher le status de garantie dans la PopUp', 'rp') . "</td>";
+      echo "<tr class='tab_bg_1 top'><td>" . __('Afficher le statut de garantie dans la PopUp', 'rp') . "</td>";
       echo "<td>";
       
       Dropdown::showYesNo("statuswarranty", $self->fields["statuswarranty"]);

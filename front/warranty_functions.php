@@ -8,12 +8,13 @@ if (!defined('GLPI_ROOT')) {
 function insertSurveyData(array $data) {
     global $DB;
 
-    if (!empty($data['fabricant']) || !empty($data['date_start']) || !empty($data['date_end'])) {
+    //if (!empty($data['fabricant']) || !empty($data['date_start']) || !empty($data['date_end'])) {
         $count = countElementsInTable('glpi_plugin_warrantycheck_tickets', ['serial_number' => $data['serial_number']]);
 
+        $serial =  $data['serial_number'];
         if ($count > 0 && !empty($data['tickets_id'])) {
             // Récupérer la liste actuelle des tickets
-            if ($query = $DB->query("SELECT id, tickets_id FROM glpi_plugin_warrantycheck_tickets WHERE serial_number = 'MP1Z0Y6R'")->fetch_object()) {
+            if ($query = $DB->query("SELECT id, tickets_id FROM glpi_plugin_warrantycheck_tickets WHERE serial_number = '$serial'")->fetch_object()) {
             
                 $existing_id      = $query->id;
                 $existing_tickets = array_map('trim', explode(',', $query->tickets_id)); // ✅ bonne colonne
@@ -36,7 +37,9 @@ function insertSurveyData(array $data) {
             // Insertion initiale si aucun serial_number trouvé
             $data['tickets_id']  = $data['tickets_id']  ?? 0;
             $data['fabricant']   = $data['fabricant']   ?? 'Inconnu';
-            $data['model']       = $data['model']       ?? '';
+            $data['model']       = $data['model']       ?? 'Inconnu';
+            $data['date_start']  = $data['date_start']  ?? NULL;
+            $data['date_end']    = $data['date_end']    ?? NULL;
 
             $fields       = array_keys($data);
             $placeholders = array_fill(0, count($fields), '?');
@@ -52,7 +55,7 @@ function insertSurveyData(array $data) {
                 Toolbox::logDebug("PluginWarrantyCheck", "Insert error: " . $e->getMessage());
             }
         }
-    }
+    //}
 }
 
 function select($serial, $Manufacturer){

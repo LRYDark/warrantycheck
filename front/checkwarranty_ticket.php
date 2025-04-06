@@ -154,6 +154,11 @@ foreach ($liste as $serial) {
             ];
         }
     }else{
+        insertSurveyData([
+            'tickets_id'    => $Ticket_id,
+            'serial_number' => $serial,
+        ]);
+
         $resultats[] = [
             'serial' => $serial,
         ];
