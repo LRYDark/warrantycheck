@@ -120,8 +120,9 @@ $liste = array_map(function($s) {
 $resultats = [];
 require_once PLUGIN_WARRANTYCHECK_DIR . '/front/warranty_functions.php';
 $group   = new PluginWarrantycheckPreference();
-$result  = $group->find(['users_id' => Session::getLoginUserID()]);
-$statuswarranty = $result[1]['statuswarranty'];
+$userid = Session::getLoginUserID();
+$result = $DB->query("SELECT * FROM `glpi_plugin_warrantycheck_preferences` WHERE users_id = $userid")->fetch_object();
+$statuswarranty = $result->statuswarranty;
 
 foreach ($liste as $serial) {
 

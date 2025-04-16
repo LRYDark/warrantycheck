@@ -22,6 +22,10 @@ function plugin_init_warrantycheck() { // fonction glpi d'initialisation du plug
    $plugin = new Plugin();
    if ($plugin->isActivated('warrantycheck')){ // verification si le plugin warrantycheck est installé et activé
 
+      $pref_ID = PluginWarrantycheckPreference::checkIfPreferenceExists(Session::getLoginUserID());
+         if (!$pref_ID && Session::getLoginUserID() != 0)
+            PluginWarrantycheckPreference::addDefaultPreference(Session::getLoginUserID());
+
       if (Session::getLoginUserID()) {
          Plugin::registerClass('PluginWarrantycheckProfile', ['addtabon' => 'Profile']);
       }

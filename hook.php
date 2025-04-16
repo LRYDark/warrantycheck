@@ -8,6 +8,7 @@ function plugin_warrantycheck_install() { // fonction installation du plugin
       $query = "CREATE TABLE `glpi_plugin_warrantycheck_preferences` (
          `id` int unsigned NOT NULL auto_increment,
          `users_id` int unsigned NOT NULL default '0',
+         `statuswarranty` int NOT NULL DEFAULT '0',
          `warrantypopup` int NULL,
          `repeatpopup` int NULL,
          `toastdelay` int NULL,

@@ -194,11 +194,13 @@ class PluginWarrantycheckTicket extends CommonDBTM {
       global $DB, $CFG_GLPI, $warrantycheck;
       $config = new PluginWarrantycheckConfig();
       $group   = new PluginWarrantycheckPreference();
-      $result  = $group->find(['users_id' => Session::getLoginUserID()]);
+      $userid = Session::getLoginUserID();
+      $result = $DB->query("SELECT * FROM `glpi_plugin_warrantycheck_preferences` WHERE users_id = $userid")->fetch_object();
       $VerifURL = isset($_GET['_target']) ? basename($_GET['_target']) : '';
-      $checkvalidate = $result[1]['checkvalidate'];
-      $statuswarranty = $result[1]['statuswarranty'];
-      $toastdelay = $result[1]['toastdelay'] * 1000;
+
+      $checkvalidate = $result->checkvalidate;
+      $statuswarranty = $result->statuswarranty;
+      $toastdelay = $result->toastdelay * 1000;
 
       $entities_id = 0;
       $idticket = $_GET['id'];
@@ -208,10 +210,10 @@ class PluginWarrantycheckTicket extends CommonDBTM {
 
       // Vérifier si l'URL contient 'id != 0'
       if ($VerifURL == 'ticket.form.php' && $_GET['id'] != 0) {
-         if ($result[1]['warrantypopup'] == 1){
+         if ($result->warrantypopup == 1){
             if ($warrantycheck == 0){
 
-               if ($result[1]['repeatpopup'] == 1){
+               if ($result->repeatpopup == 1){
                   $id = $_GET['id'] ?? null;
                   $now = time();
                   $expire_after = 900; // 15 minutes
