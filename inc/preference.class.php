@@ -58,6 +58,7 @@ class PluginWarrantycheckPreference extends CommonDBTM {
       $input["checkvalidate"]                = 1;
       $input["statuswarranty"]               = 0;
       $input["toastdelay"]                   = 60;
+      $input["maxserial"]                    = 9999;
       return $self->add($input);
    }
 
@@ -108,6 +109,26 @@ class PluginWarrantycheckPreference extends CommonDBTM {
       echo "<td>";
       Dropdown::showYesNo("checkvalidate", $self->fields["checkvalidate"]);
       echo "</td></tr>";
+
+      // Générer les options du menu déroulant
+      $dropdownValues = [];
+      for ($i = 5; $i <= 100; $i += 5) {
+         $dropdownValues[$i] = $i; // La clé et la valeur sont identiques dans ce cas
+      }
+      // Ajouter l'option "Illimité" avec la valeur 9999
+      $dropdownValues[9999] = "Illimité";
+      echo "<tr class='tab_bg_1'>";
+         echo "<td>" . __("Nombre maximum de numéro de série à afficher", "gestion") . "</td><td>";
+            // Afficher le menu déroulant avec Dropdown::show()
+            Dropdown::showFromArray(
+               'maxserial',  // Nom de l'identifiant du champ
+               $dropdownValues,    // Tableau des options
+               [
+                  'value'      => $self->fields["maxserial"],        // Valeur sélectionnée par défaut (optionnel)
+               ]
+            );
+         echo "</td>";
+      echo "</tr>";
 
       echo "<tr class='tab_bg_1 top'><td>" . __('Afficher le statut de garantie dans la PopUp', 'rp') . "</td>";
       echo "<td>";

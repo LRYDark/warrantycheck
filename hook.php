@@ -9,6 +9,7 @@ function plugin_warrantycheck_install() { // fonction installation du plugin
          `id` int unsigned NOT NULL auto_increment,
          `users_id` int unsigned NOT NULL default '0',
          `statuswarranty` int NOT NULL DEFAULT '0',
+         `maxserial` int NOT NULL DEFAULT '9999',
          `warrantypopup` int NULL,
          `repeatpopup` int NULL,
          `toastdelay` int NULL,
@@ -34,6 +35,25 @@ function plugin_warrantycheck_install() { // fonction installation du plugin
          if (!empty($missing_columns)) {
             $query= "ALTER TABLE glpi_plugin_warrantycheck_preferences
                ADD COLUMN `statuswarranty` INT(10) NOT NULL DEFAULT '0';";
+            $DB->query($query) or die($DB->error());
+         }
+      }
+
+      if ($_SESSION['PLUGIN_WARRANTYCHECK_VERSION'] > '1.0.2'){
+         // Vérifier si les colonnes existent déjà
+         $columns = $DB->query("SHOW COLUMNS FROM `glpi_plugin_warrantycheck_preferences`")->fetch_all(MYSQLI_ASSOC);
+
+         // Liste des colonnes à vérifier
+         $required_columns = [
+            'maxserial'
+         ];
+
+         // Liste pour les colonnes manquantes
+         $missing_columns = array_diff($required_columns, array_column($columns, 'Field'));
+
+         if (!empty($missing_columns)) {
+            $query= "ALTER TABLE glpi_plugin_warrantycheck_preferences
+               ADD COLUMN `maxserial` INT(10) NOT NULL DEFAULT '9999';";
             $DB->query($query) or die($DB->error());
          }
       }

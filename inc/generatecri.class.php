@@ -5,6 +5,7 @@ if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access directly to this file");
 }
 
+
 /**
  * Class PluginWarrantycheckGenerateCRI
  */
@@ -51,6 +52,7 @@ class PluginWarrantycheckGenerateCRI extends CommonGLPI {
     */
    function showWizard($ticket, $entities) {
       if(Session::haveRight("plugin_warrantycheck_survey", READ)){
+         echo '<div id="main-content">';
          global $DB, $CFG_GLPI;
          $UserID = Session::getLoginUserID();
          $SN = null;
@@ -88,7 +90,7 @@ class PluginWarrantycheckGenerateCRI extends CommonGLPI {
 
          echo '<div class="card-body">';
             
-            echo "<form method='get' action='" . self::getFormUrl() . "' class='mb-4'>";
+            echo "<form method='get' id='myForm' action='" . self::getFormUrl() . "' class='mb-4'>";
                echo '<div class="d-flex flex-wrap justify-content-center">';
                   // Première ligne (HP, Dell, Lenovo)
                   echo '<div class="form-check form-check-inline">';
@@ -128,8 +130,15 @@ class PluginWarrantycheckGenerateCRI extends CommonGLPI {
                      echo '<input type="text" name="serial" id="serial" class="form-control" placeholder="Numéro de série" value="'.$SN.'" required>';
                      echo '<button type="submit" name="generatecri" id="sig-submitBtn" class="btn btn-primary">';
                         echo __('Vérifier la garantie');
-                     echo '</button>';
+                     echo '</button>';           
                   echo '</div>';
+               echo '</div>';
+
+               // Spinner caché par défaut
+               echo '<div id="loader-wrapper" style="display: none; text-align: center;">';
+                  echo '<br>';
+                     echo '<i class="fas fa-spinner fa-spin fa-2x text-primary"></i>';
+                  echo '<p class="mt-2 mb-0"><strong>Vérification de la garantie ...</strong></p>';
                echo '</div>';
                Html::closeForm();
                
@@ -304,8 +313,22 @@ class PluginWarrantycheckGenerateCRI extends CommonGLPI {
                   console.error('Erreur de copie : ', err);
                });
                }
+
+
+               document.addEventListener("DOMContentLoaded", function () {
+    const form = document.getElementById("myForm");
+    const spinner = document.getElementById("loader-wrapper");
+    const submitBtn = document.getElementById("sig-submitBtn");
+
+    form.addEventListener("submit", function () {
+        spinner.style.display = "block";
+        submitBtn.disabled = true;
+    });
+});
+
             </script>
          <?php
+
       }
    }
 }

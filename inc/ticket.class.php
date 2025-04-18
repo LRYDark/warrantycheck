@@ -250,6 +250,7 @@ class PluginWarrantycheckTicket extends CommonDBTM {
                            position: fixed;
                            bottom: 20px;
                            right: 20px;
+                           overflow-y: auto; /* Ajoute un ascenseur si nécessaire */
                         }
                         .toast .toast-header {
                            display: flex;
@@ -267,6 +268,10 @@ class PluginWarrantycheckTicket extends CommonDBTM {
                         }
                         .toast .close:hover {
                            opacity: 1;
+                        }
+                        .toast-body {
+                           max-height: 300px; /* Limite la hauteur maximale du corps du toast */
+                           overflow-y: auto; /* Ajoute un ascenseur si nécessaire */
                         }
                      </style>
 
@@ -336,7 +341,10 @@ class PluginWarrantycheckTicket extends CommonDBTM {
                                           colorClass = 'badge bg-danger';
                                        }
 
-                                       const pluginUrl = '<?php echo $CFG_GLPI["root_doc"]; ?>/plugins/warrantycheck/front/generatecri.form.php';
+                                       //const pluginUrl = '<?php echo $CFG_GLPI["root_doc"]; ?>/plugins/warrantycheck/front/generatecri.form.php';
+                                       //const serialLink = `<a href="${pluginUrl}?serial=${encodeURIComponent(entry.serial)}" target="_blank">${entry.serial}</a>`;
+
+                                       const pluginUrl = '<?php echo $CFG_GLPI["root_doc"]; ?>/plugins/warrantycheck/front/generatecri_loader.php';
                                        const serialLink = `<a href="${pluginUrl}?serial=${encodeURIComponent(entry.serial)}" target="_blank">${entry.serial}</a>`;
 
                                        html += `

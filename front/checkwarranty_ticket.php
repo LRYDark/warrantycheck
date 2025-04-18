@@ -123,6 +123,8 @@ $group   = new PluginWarrantycheckPreference();
 $userid = Session::getLoginUserID();
 $result = $DB->query("SELECT * FROM `glpi_plugin_warrantycheck_preferences` WHERE users_id = $userid")->fetch_object();
 $statuswarranty = $result->statuswarranty;
+$max = $result->maxserial; // Exemple : l'utilisateur définit la limite à 20
+$resultats = [];
 
 foreach ($liste as $serial) {
 
@@ -141,18 +143,22 @@ foreach ($liste as $serial) {
         }
     
         if (isset($infos) && is_array($infos) && array_key_exists('fabricant', $infos) && $infos['fabricant'] != null){
-            $resultats[] = [
-                'serial' => $serial,
-                'fabricant' => $infos['fabricant'] ?? '',
-                'warranty_status' => $infos['warranty_status'] ?? '',
-                'debug' => $infos // facultatif si tu veux tout retourner
-            ];
+            if (count($resultats) < $max) {
+                $resultats[] = [
+                    'serial' => $serial,
+                    'fabricant' => $infos['fabricant'] ?? '',
+                    'warranty_status' => $infos['warranty_status'] ?? '',
+                    'debug' => $infos // facultatif si tu veux tout retourner
+                ];
+            }
         }else{
-            $resultats[] = [
-                'serial' => $serial,
-                'warranty_status' => 'Inconnu ou API erreur',
-                'debug' => $infos // facultatif si tu veux tout retourner
-            ];
+            if (count($resultats) < $max) {
+                $resultats[] = [
+                    'serial' => $serial,
+                    'warranty_status' => 'Inconnu ou API erreur',
+                    'debug' => $infos // facultatif si tu veux tout retourner
+                ];
+            }
         }
     }else{
         insertSurveyData([
@@ -160,9 +166,11 @@ foreach ($liste as $serial) {
             'serial_number' => $serial,
         ]);
 
-        $resultats[] = [
-            'serial' => $serial,
-        ];
+        if (count($resultats) < $max) {
+            $resultats[] = [
+                'serial' => $serial,
+            ];
+        }
     }
 
 }
