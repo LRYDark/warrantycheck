@@ -16,6 +16,8 @@ function findSerialNumbers(string $text): array {
     // 🧠 Conversion en blacklist dynamique
     $dynamic_blacklist = array_filter(array_map('trim', explode(',', strtolower($blacklist_row))));
     $dynamic_blacklist = array_flip($dynamic_blacklist); // Accès rapide
+    
+    $text = preg_replace("/\s*src\s*=\s*(['\"]?).*?\\1/i", '', $text); // Suppression des src
 
     // 🧼 Nettoyage HTML
     $text = preg_replace('/<br\s*\/?>/i', ' ', $text);
