@@ -315,6 +315,7 @@ class PluginWarrantycheckTicket extends CommonDBTM {
                                  url: '<?php echo $CFG_GLPI["root_doc"]; ?>/plugins/warrantycheck/front/checkwarranty_ticket.php',
                                  method: 'GET',
                                  data: {ticket_id: ticketID},
+                                 dataType: 'json', // JSON
                                  success: function(data) {
                                     let html = "";
 
@@ -332,6 +333,7 @@ class PluginWarrantycheckTicket extends CommonDBTM {
                                     }
 
                                     data.forEach(entry => {
+                                       let info = entry.info || null;
                                        let statusText = entry.warranty_status || null;
                                        let fabricant = entry.fabricant || null;
                                        let colorClass = 'badge bg-secondary';
@@ -342,15 +344,12 @@ class PluginWarrantycheckTicket extends CommonDBTM {
                                           colorClass = 'badge bg-danger';
                                        }
 
-                                       //const pluginUrl = '<?php echo $CFG_GLPI["root_doc"]; ?>/plugins/warrantycheck/front/generatecri.form.php';
-                                       //const serialLink = `<a href="${pluginUrl}?serial=${encodeURIComponent(entry.serial)}" target="_blank">${entry.serial}</a>`;
-
                                        const pluginUrl = '<?php echo $CFG_GLPI["root_doc"]; ?>/plugins/warrantycheck/front/generatecri_loader.php';
                                        const serialLink = `<a href="${pluginUrl}?serial=${encodeURIComponent(entry.serial)}" target="_blank">${entry.serial}</a>`;
 
                                        html += `
                                           <div style="margin-bottom: 6px; padding-bottom: 6px; border-bottom: 1px solid #ccc;">
-                                             <div><strong>Numéro de série :</strong> ${serialLink}</div>
+                                             <div><strong>${info}</strong> ${serialLink}</div>
                                              ${fabricant ? `<div><strong>Fabricant :</strong> ${fabricant}</div>` : ''}
                                              ${statusText ? `<div><strong>Statut de la garantie :</strong> <span class="${colorClass}">${statusText}</span></div>` : ''}
                                           </div>

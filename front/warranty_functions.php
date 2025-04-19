@@ -8,54 +8,53 @@ if (!defined('GLPI_ROOT')) {
 function insertSurveyData(array $data) {
     global $DB;
 
-    //if (!empty($data['fabricant']) || !empty($data['date_start']) || !empty($data['date_end'])) {
-        $count = countElementsInTable('glpi_plugin_warrantycheck_tickets', ['serial_number' => $data['serial_number']]);
+    $count = countElementsInTable('glpi_plugin_warrantycheck_tickets', ['serial_number' => $data['serial_number']]);
 
-        $serial =  $data['serial_number'];
-        if ($count > 0 && !empty($data['tickets_id'])) {
-            // Récupérer la liste actuelle des tickets
-            if ($query = $DB->query("SELECT id, tickets_id FROM glpi_plugin_warrantycheck_tickets WHERE serial_number = '$serial'")->fetch_object()) {
-            
-                $existing_id      = $query->id;
-                $existing_tickets = array_map('trim', explode(',', $query->tickets_id)); // ✅ bonne colonne
-            
-                // Vérifie si le nouveau ticket est déjà présent
-                if (!in_array($data['tickets_id'], $existing_tickets)) {
-                    // Ajout du nouveau ticket
-                    $updated_tickets = implode(',', array_merge($existing_tickets, [$data['tickets_id']]));
-            
-                    $update_sql = "UPDATE glpi_plugin_warrantycheck_tickets SET tickets_id = ? WHERE id = ?";
-                    $update_stmt = $DB->prepare($update_sql);
-                    try {
-                        $update_stmt->execute([$updated_tickets, $existing_id]);
-                    } catch (Throwable $e) {
-                        Toolbox::logDebug("PluginWarrantyCheck", "Update error: " . $e->getMessage());
-                    }
+    $serial =  $data['serial_number'];
+    if ($count > 0 && !empty($data['tickets_id'])) {
+        // Récupérer la liste actuelle des tickets
+        if ($query = $DB->query("SELECT id, tickets_id FROM glpi_plugin_warrantycheck_tickets WHERE serial_number = '$serial'")->fetch_object()) {
+        
+            $existing_id      = $query->id;
+            $existing_tickets = array_map('trim', explode(',', $query->tickets_id)); // ✅ bonne colonne
+        
+            // Vérifie si le nouveau ticket est déjà présent
+            if (!in_array($data['tickets_id'], $existing_tickets)) {
+                // Ajout du nouveau ticket
+                $updated_tickets = implode(',', array_merge($existing_tickets, [$data['tickets_id']]));
+        
+                $update_sql = "UPDATE glpi_plugin_warrantycheck_tickets SET tickets_id = ? WHERE id = ?";
+                $update_stmt = $DB->prepare($update_sql);
+                try {
+                    $update_stmt->execute([$updated_tickets, $existing_id]);
+                } catch (Throwable $e) {
+                    Toolbox::logDebug("PluginWarrantyCheck", "Update error: " . $e->getMessage());
                 }
-            }           
-        } elseif ($count == 0) {
-            // Insertion initiale si aucun serial_number trouvé
-            $data['tickets_id']  = $data['tickets_id']  ?? 0;
-            $data['fabricant']   = $data['fabricant']   ?? 'Inconnu';
-            $data['model']       = $data['model']       ?? 'Inconnu';
-            $data['date_start']  = $data['date_start']  ?? NULL;
-            $data['date_end']    = $data['date_end']    ?? NULL;
-
-            $fields       = array_keys($data);
-            $placeholders = array_fill(0, count($fields), '?');
-            $values       = array_values($data);
-
-            $sql = "INSERT INTO glpi_plugin_warrantycheck_tickets (" . implode(',', $fields) . ")
-                    VALUES (" . implode(',', $placeholders) . ")";
-
-            try {
-                $stmt = $DB->prepare($sql);
-                $stmt->execute($values);
-            } catch (Throwable $e) {
-                Toolbox::logDebug("PluginWarrantyCheck", "Insert error: " . $e->getMessage());
             }
+        }           
+    } elseif ($count == 0) {
+        // Insertion initiale si aucun serial_number trouvé
+        $data['tickets_id']  = $data['tickets_id']  ?? 0;
+        $data['fabricant']   = $data['fabricant']   ?? 'Inconnu';
+        $data['model']       = $data['model']       ?? 'Inconnu';
+        $data['date_start']  = $data['date_start']  ?? NULL;
+        $data['date_end']    = $data['date_end']    ?? NULL;
+
+        $fields       = array_keys($data);
+        $placeholders = array_fill(0, count($fields), '?');
+        $values       = array_values($data);
+
+        $sql = "INSERT INTO glpi_plugin_warrantycheck_tickets (" . implode(',', $fields) . ")
+                VALUES (" . implode(',', $placeholders) . ")";
+
+        try {
+            $stmt = $DB->prepare($sql);
+            $stmt->execute($values);
+        } catch (Throwable $e) {
+            Toolbox::logDebug("PluginWarrantyCheck", "Insert error: " . $e->getMessage());
         }
-    //}
+    }
+
 }
 
 function select($serial, $Manufacturer){
@@ -73,6 +72,26 @@ function select($serial, $Manufacturer){
             return DynabookWarranty::getNormalized($serial);
         case 'Terra':
             return WarrantyChecker_Terra::check($serial);
+        case 'BonDeCommande':
+            return [
+                'info' => 'Bon de commande : ',
+                'fabricant' => 'Bon de commande'
+            ];
+        case 'BonDeLivraison':
+            return [
+                'info' => 'Bon de livraison : ',
+                'fabricant' => 'Bon de livraison'
+            ];
+        case 'Facture':
+            return [
+                'info' => 'Facture : ',
+                'fabricant' => 'Facture'
+            ];
+        case 'Devis':
+            return [
+                'info' => 'Devis : ',
+                'fabricant' => 'Devis'
+            ];
         // Ajoutez d'autres cas pour les constructeurs supplémentaires
     }
 
@@ -92,6 +111,11 @@ function detectBrand($serial, $Manufacturer) {
         $dynabookPrefixes = $config->Filtre_Dynabook() ? explode(',', $config->Filtre_Dynabook()) : [];
         $terraPrefixes = $config->Filtre_Terra() ? explode(',', $config->Filtre_Terra()) : [];
 
+        $BonLivraisonPrefixes = $config->Filtre_BonDeLivraison() ? explode(',', $config->Filtre_BonDeLivraison()) : [];
+        $DevisPrefixes = $config->Filtre_Devis() ? explode(',', $config->Filtre_Devis()) : [];
+        $FacturePrefixes = $config->Filtre_Facture() ? explode(',', $config->Filtre_Facture()) : [];
+        $BonCommadePrefixes = $config->Filtre_BonDeCommande() ? explode(',', $config->Filtre_BonDeCommande()) : [];
+
         // Tableau des préfixes associés à chaque constructeur
         $brandPrefixes = [
             'HP' => $hpPrefixes,
@@ -99,6 +123,10 @@ function detectBrand($serial, $Manufacturer) {
             'Dell' => $dellPrefixes, 
             'Dynabook' => $dynabookPrefixes,
             'Terra' => $terraPrefixes,
+            'BonDeCommande' => $BonCommadePrefixes,
+            'BonDeLivraison' => $BonLivraisonPrefixes,
+            'Facture' => $FacturePrefixes,
+            'Devis' => $DevisPrefixes,
         ];
 
         // Variable pour suivre le constructeur par défaut
@@ -170,6 +198,7 @@ class LenovoWarranty extends CommonDBTM {
         }
 
         return [
+            'info' => 'serialnumber',
             'fabricant' => 'Lenovo',
             'model' => $data['ProductName'] ?? 'LENOVO',
             'serial' => $data['Serial'] ?? '',
@@ -270,6 +299,7 @@ class HpWarrantyChecker extends CommonDBTM {
         $type = stripos($best['offerDescription'] ?? '', 'Onsite') !== false ? 'Onsite' : 'Offsite';
 
         return [
+            'info' => 'serialnumber',
             'fabricant' => 'HP',
             'model' => $product['productDescription'] ?? '',
             'serial' => $product['serialNumber'] ?? '',
@@ -408,6 +438,7 @@ class DellWarrantyChecker extends CommonDBTM {
         }
 
         return [
+            'info' => 'serialnumber',
             'fabricant' => 'Dell',
             'model' => $product['productLineDescription'] ?? '',
             'serial' => $product['serviceTag'] ?? '',
@@ -471,6 +502,7 @@ class DynabookWarranty extends CommonDBTM {
         $type = ($bean['warrantyOnsite'] ?? '0') === '1' ? 'Onsite' : 'Depot';
 
         return [
+            'info' => 'serialnumber',
             'fabricant' => 'Dynabook',
             'model' => $bean['modelName'] ?? 'DYNABOOK',
             'serial' => $bean['serialNumber'] ?? $serial,
@@ -558,6 +590,7 @@ class WarrantyChecker_Terra {
         }
 
         return [
+            'info' => 'serialnumber',
             'fabricant' => 'Terra',
             'model' => $modele,
             'serial' => $serial,

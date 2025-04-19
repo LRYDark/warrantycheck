@@ -115,6 +115,32 @@ class PluginWarrantycheckConfig extends CommonDBTM
          echo "</td>";
       echo "</tr>";
 
+      // facture, devis, bon de livraison, bon de commande
+      echo "<tr class='tab_bg_1'>";
+         echo "<td>" . __("Filtre Devis", "gestion") . "</td><td>";
+            echo Html::input('Filtre_Devis', ['value' => $config->Filtre_Devis(), 'size' => 80]);// bouton configuration du bas de page line 1
+         echo "</td>";
+      echo "</tr>";
+
+      echo "<tr class='tab_bg_1'>";
+         echo "<td>" . __("Filtre Facture", "gestion") . "</td><td>";
+            echo Html::input('Filtre_Facture', ['value' => $config->Filtre_Facture(), 'size' => 80]);// bouton configuration du bas de page line 1
+         echo "</td>";
+      echo "</tr>";
+
+      echo "<tr class='tab_bg_1'>";
+         echo "<td>" . __("Filtre Bon de livraison", "gestion") . "</td><td>";
+            echo Html::input('Filtre_BonDeLivraison', ['value' => $config->Filtre_BonDeLivraison(), 'size' => 80]);// bouton configuration du bas de page line 1
+         echo "</td>";
+      echo "</tr>";
+
+      echo "<tr class='tab_bg_1'>";
+         echo "<td>" . __("Filtre Bon de commande", "gestion") . "</td><td>";
+            echo Html::input('Filtre_BonDeCommande', ['value' => $config->Filtre_BonDeCommande(), 'size' => 80]);// bouton configuration du bas de page line 1
+         echo "</td>";
+      echo "</tr>";
+      //-------------------
+
       echo "<tr><th colspan='2'>" . __('Blacklist pour le fitre des numéros de série', 'gestion') . "</th></tr>";
       echo "<tr class='tab_bg_1'>";
          echo "<td>" . __("Blacklist", "gestion") . "</td><td>";
@@ -157,6 +183,22 @@ class PluginWarrantycheckConfig extends CommonDBTM
    function Filtre_Terra()
    {
       return ($this->fields['Filtre_Terra']);
+   }
+   function Filtre_Devis()
+   {
+      return ($this->fields['Filtre_Devis']);
+   }
+   function Filtre_Facture()
+   {
+      return ($this->fields['Filtre_Facture']);
+   }
+   function Filtre_BonDeLivraison()
+   {
+      return ($this->fields['Filtre_BonDeLivraison']);
+   }
+   function Filtre_BonDeCommande()
+   {
+      return ($this->fields['Filtre_BonDeCommande']);
    }
    function blacklist()
    {
@@ -221,11 +263,40 @@ class PluginWarrantycheckConfig extends CommonDBTM
                   `Filtre_Dell` TEXT NULL,
                   `Filtre_Dynabook` TEXT NULL DEFAULT '41',
                   `Filtre_Terra` TEXT NULL DEFAULT 'R',
+                  `Filtre_Devis` TEXT NULL DEFAULT 'DE',
+                  `Filtre_Facture` TEXT NULL DEFAULT 'FA',
+                  `Filtre_BonDeLivraison` TEXT NULL DEFAULT 'BL',
+                  `Filtre_BonDeCommande` TEXT NULL DEFAULT 'BC',
                   `blacklist` MEDIUMTEXT NULL DEFAULT 'FR1009626,fr,FR,08H00,08H30,09H00,09H30,10H00,11H00,12H00,13H30,17H00,ABEND,ABTEILUNG,ACCUEIL,ADDRESS,ADMINISTRATION,ADRESSE,AFTERNOON,AGENT,ANFRAGE,ANNÉE,ANRUF,APPEL,APRÈS-MIDI,ASSISTANCE,AUSBILDUNG,AUSTAUSCH,AUTHORIZATION,AUTORISATION,Backup,Beispiel,Benutzer,Bonjour,Building,BÂTIMENT,CALL,CAS,CASE,CD54,CENTER,CENTRE,CHECK,CLIENT,COLLÈGE,COMMUNICATION,COMPUTER,CONFIGURATION,CONNECTION,CONNEXION,DANKE,DATA,DATEN,DAY,DAYS,DEMANDE,DEPARTEMENT54,DEPARTMENT,DIENST,DIRECTION,DONNÉES,DRUCKER,DSI,EBENE,EINSATZ,EMAIL,EMPFANG,ESCALIER,ETAGE,EVENING,EXAMPLE,EXEMPLE,FAILURE,FALL,FEHLER,FIRSTNAME,FLOOR,FOG-PRG-S110-00,FORMATION,GEBÄUDE,GENEHMIGUNG,GLPI,HALLO,HARDWARE,HELLO,HEURES,HILFE,HOURS,IMPRIMANTE,INCIDENT,INTERVENANT,INTERVENTION,ITIL,JAHR,JOUR,JOURS,KOMMUNIKATION,KONFIGURATION,KUNDE,LAPTOP,LASTNAME,LEVEL,LOGICIEL,LYCÉE,MACHINE,MAINTENANCE,MASCHINE,MATERIAL,MATIN,MATÉRIEL,MERCI,MITARBEITER,MODEL,MODELL,MODÈLE,MOIS,MONAT,MONTH,MORGEN,MORNING,NACHMITTAG,NACHNAME,NAME,NETWORK,NETZWERK,NIVEAU,NIVEAUX,NOM,NUMBER,NUMMER,NUMÉRISATION,NUMÉRO,ORDINATEUR,OXE-APP01,PANNE,PHONE,PLN-GNC-PORT-04,PORTABLE,PRINTER,PROBLEM,PROBLÈME,PRODUCT,PRODUIT,PRODUKT,PRÉNOM,RAUM,RDC-ADMIN02,RECEPTION,REFERENCE,REFERENZ,REMPLACEMENT,REPAIR,REPARATUR,REPLACEMENT,REQUEST,ROOM,RÉCEPTION,RÉFÉRENCE,RÉPARATION,RÉSEAU,SALLE,SAUVEGARDE,SCAN,SCHOOL,SCHULE,SEMAINE,SERVICE,SICHERUNG,SITE,SOFTWARE,SOIR,ST-ADMIN01,STAIRS,STANDORT,STUNDEN,SUPPORT,TAG,TAGE,TECHNICIAN,TECHNICIEN,TECHNIKER,TELECOM,TELEFON,TELEKOM,TEMPS,TEST,THANKS,TICKET,TIME,TRAINING,TREPPE,TÉLÉCOMS,TÉLÉPHONE,UNTERSTÜTZUNG,USER,UTILISATEUR,VERBINDUNG,VERWALTUNG,VORFALL,VORNAME,VÉRIFICATION,WARTUNG,WEEK,WOCHE,YEAR,ZEIT,ZENTRUM,ZONE,ÉTABLISSEMENT,ÉTAGE,ÜBERPRÜFUNG,überprüfung',
                   PRIMARY KEY (`id`)
          ) ENGINE=InnoDB DEFAULT CHARSET={$default_charset} COLLATE={$default_collation} ROW_FORMAT=DYNAMIC;";
          $DB->query($query) or die($DB->error());
          $config->add(['id' => 1,]);
+      }else{
+         if ($_SESSION['PLUGIN_WARRANTYCHECK_VERSION'] > '1.0.3'){
+            // Vérifier si les colonnes existent déjà
+            $columns = $DB->query("SHOW COLUMNS FROM `$table`")->fetch_all(MYSQLI_ASSOC);
+   
+            // Liste des colonnes à vérifier
+            $required_columns = [
+               'Filtre_Devis',
+               'Filtre_Facture',
+               'Filtre_BonDeLivraison',
+               'Filtre_BonDeCommande',
+            ];
+   
+            // Liste pour les colonnes manquantes
+            $missing_columns = array_diff($required_columns, array_column($columns, 'Field'));
+   
+            if (!empty($missing_columns)) {
+               $query= "ALTER TABLE $table
+                  ADD COLUMN `Filtre_Devis` TEXT NULL DEFAULT 'DE',
+                  ADD COLUMN `Filtre_Facture` TEXT NULL DEFAULT 'FA',
+                  ADD COLUMN `Filtre_BonDeLivraison` TEXT NULL DEFAULT 'BL',
+                  ADD COLUMN `Filtre_BonDeCommande` TEXT NULL DEFAULT 'BC';";
+               $DB->query($query) or die($DB->error());
+            }
+         }
       }
    }
 

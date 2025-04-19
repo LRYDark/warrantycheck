@@ -6,6 +6,8 @@ if (!defined('GLPI_ROOT')) {
     die("Sorry. You can't access directly to this file");
 }
 
+ob_clean(); // Vide tout ce qui a pu être envoyé avant
+
 function findSerialNumbers(string $text): array {
     global $DB, $CFG_GLPI;
     $config = new PluginWarrantycheckConfig();
@@ -17,14 +19,36 @@ function findSerialNumbers(string $text): array {
     $dynamic_blacklist = array_filter(array_map('trim', explode(',', strtolower($blacklist_row))));
     $dynamic_blacklist = array_flip($dynamic_blacklist); // Accès rapide
     
-    $text = preg_replace("/\s*src\s*=\s*(['\"]?).*?\\1/i", '', $text); // Suppression des src
+    // Liste des attributs à supprimer
+    $attributes = ['src', 'style', 'onclick', 'onerror', 'onload', 'onmouseover', 'onfocus', 'onblur'];
+
+    foreach ($attributes as $attr) {
+        $text = preg_replace(
+            '/\s*\b' . preg_quote($attr, '/') . '\s*=\s*(?:(["\']).*?\1|[^\s>]+)/i',
+            '',
+            $text
+        );
+    }
+
+    $text = preg_replace('#<(img|svg|meta|link|iframe|noscript)[^>]*?>#is', '', $text); // Suppression des images et autres balises
+    $text = preg_replace('#<(script|style|iframe|object|embed)[^>]*>.*?</\1>#is', '', $text); // Supprime les balises <script>, <style>, <iframe>, <object>, <embed> 
+    $text = preg_replace('#<img\b[^>]*>#i', '', $text); // Supprime les balises <img> (autofermées ou non)
 
     // 🧼 Nettoyage HTML
     $text = preg_replace('/<br\s*\/?>/i', ' ', $text);
     $text = preg_replace('/<\/?(p|div|h\d|strong|span|em|b|i|u)>/i', ' ', $text);
     $text = strip_tags($text);
-    $text = html_entity_decode($text);
-    $text = mb_convert_encoding($text, 'UTF-8', 'UTF-8');
+
+    $text = preg_replace('/\s+/', ' ', $text); // Suppression des espaces multiples
+    $text = preg_replace('/\s*([.,;:!?()])\s*/', '$1 ', $text); // Normalisation des espaces autour de la ponctuation
+    $text = preg_replace('/\s+/', ' ', $text); // Suppression des espaces multiples
+    $text = preg_replace('/\s*([.,;:!?()])\s*/', '$1 ', $text); // Normalisation des espaces autour de la ponctuation
+
+    // 🧼 Nettoyage des entités HTML
+    $text = html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');// Suppression des entités HTML
+    $text = trim($text);// Suppression des espaces en début et fin de chaîne
+    $text = html_entity_decode($text);// Suppression des entités HTML
+    $text = mb_convert_encoding($text, 'UTF-8', 'UTF-8');// Suppression des entités HTML
 
     // 🔠 Séparation des mots
     $words = preg_split('/[^A-Z0-9\-]+/i', $text);
@@ -122,6 +146,7 @@ $liste = array_map(function($s) {
 $resultats = [];
 require_once PLUGIN_WARRANTYCHECK_DIR . '/front/warranty_functions.php';
 $group   = new PluginWarrantycheckPreference();
+$config = new PluginWarrantycheckConfig();
 $userid = Session::getLoginUserID();
 $result = $DB->query("SELECT * FROM `glpi_plugin_warrantycheck_preferences` WHERE users_id = $userid")->fetch_object();
 $statuswarranty = $result->statuswarranty;
@@ -133,45 +158,87 @@ foreach ($liste as $serial) {
     if($statuswarranty === 1){
         $infos = detectBrand($serial, $Manufacturer = null);
 
-        if (isset($infos) && is_array($infos) && isset($infos['fabricant'], $infos['warranty_start'], $infos['warranty_end'], $infos['serial'])) {
+        //if (isset($infos) && is_array($infos) && isset($infos['fabricant'], $infos['warranty_start'], $infos['warranty_end'], $infos['serial'])) {
             insertSurveyData([
                 'tickets_id'    => $Ticket_id,
-                'serial_number' => $infos['serial'],
-                'model'         => $infos['model'] ?? '',
-                'fabricant'     => $infos['fabricant'],
-                'date_start'    => $infos['warranty_start'],
-                'date_end'      => $infos['warranty_end'],
+                'serial_number' => $infos['serial'] ?? $serial,
+                'model'         => $infos['model'] ?? null,
+                'fabricant'     => $infos['fabricant'] ?? null,
+                'date_start'    => $infos['warranty_start'] ?? null,
+                'date_end'      => $infos['warranty_end'] ?? null,
             ]);
-        }
+        //}
     
-        if (isset($infos) && is_array($infos) && array_key_exists('fabricant', $infos) && $infos['fabricant'] != null){
+        if (isset($infos) && is_array($infos) && array_key_exists('fabricant', $infos) && $infos['fabricant'] != null && $infos['info'] === 'serialnumber') {
             if (count($resultats) < $max) {
                 $resultats[] = [
                     'serial' => $serial,
                     'fabricant' => $infos['fabricant'] ?? '',
                     'warranty_status' => $infos['warranty_status'] ?? '',
-                    'debug' => $infos // facultatif si tu veux tout retourner
+                    'info' => 'Numéro de serie : '
                 ];
             }
         }else{
             if (count($resultats) < $max) {
-                $resultats[] = [
-                    'serial' => $serial,
-                    'warranty_status' => 'Inconnu ou API erreur',
-                    'debug' => $infos // facultatif si tu veux tout retourner
-                ];
+                if (is_array($infos) && isset($infos['fabricant']) && in_array($infos['fabricant'], ['Bon de commande', 'Bon de livraison', 'Facture', 'Devis'])){
+                    $resultats[] = [
+                        'serial' => $serial,
+                        'info' => $infos['info'] ?? ''
+                    ];
+                } else {
+                    $resultats[] = [
+                        'serial' => $serial,
+                        'warranty_status' => 'Inconnu ou API erreur',
+                        'info' => 'Numéro de serie : '
+                    ];
+                }
+                
             }
         }
     }else{
-        insertSurveyData([
-            'tickets_id'    => $Ticket_id,
-            'serial_number' => $serial,
-        ]);
-
         if (count($resultats) < $max) {
-            $resultats[] = [
-                'serial' => $serial,
+            $resultat = ['serial' => $serial];
+
+            $BonLivraisonPrefixes = $config->Filtre_BonDeLivraison() ? explode(',', $config->Filtre_BonDeLivraison()) : [];
+            $DevisPrefixes = $config->Filtre_Devis() ? explode(',', $config->Filtre_Devis()) : [];
+            $FacturePrefixes = $config->Filtre_Facture() ? explode(',', $config->Filtre_Facture()) : [];
+            $BonCommadePrefixes = $config->Filtre_BonDeCommande() ? explode(',', $config->Filtre_BonDeCommande()) : [];
+
+            // Tableau des préfixes associés à chaque constructeur
+            $brandPrefixes = [
+                'Bon de commande : '  => $BonCommadePrefixes,
+                'Bon de livraison : ' => $BonLivraisonPrefixes,
+                'Facture : '          => $FacturePrefixes,
+                'Devis : '            => $DevisPrefixes,
             ];
+
+            $found = false;
+
+            foreach ($brandPrefixes as $label => $prefixes) {
+                foreach ($prefixes as $prefix) {
+                    if (stripos($serial, trim($prefix)) === 0) {
+                        $resultat['info'] = $label;
+                        $found = true;
+                        break 2; // On sort dès qu'on trouve
+                    }
+                }
+            }
+    
+            if (!$found) {
+                $resultat['info'] = 'Numéro de série : ';
+                insertSurveyData([
+                    'tickets_id'    => $Ticket_id,
+                    'serial_number' => $serial,
+                ]);
+            }else{
+                insertSurveyData([
+                    'tickets_id'    => $Ticket_id,
+                    'serial_number' => $serial,
+                    'fabricant'     => rtrim($label, ' :'),
+                ]);
+            }
+    
+            $resultats[] = $resultat;
         }
     }
 
