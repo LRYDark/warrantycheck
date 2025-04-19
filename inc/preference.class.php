@@ -59,6 +59,7 @@ class PluginWarrantycheckPreference extends CommonDBTM {
       $input["statuswarranty"]               = 0;
       $input["toastdelay"]                   = 60;
       $input["maxserial"]                    = 9999;
+      $input["viewdoc"]                      = 0;
       return $self->add($input);
    }
 
@@ -95,7 +96,7 @@ class PluginWarrantycheckPreference extends CommonDBTM {
 
       echo "<table class='tab_cadre_fixe' style='margin: 0; margin-top: 5px;'>\n";
 
-      echo "<tr class='tab_bg_1 top'><td>" . __('Recherche des numéros de serie dans les tickets', 'rp') . "</td>";
+      echo "<tr class='tab_bg_1 top'><td>" . __('Rechercher dans les tickets', 'rp') . "</td>";
       echo "<td>";
       Dropdown::showYesNo("warrantypopup", $self->fields["warrantypopup"]);
       echo "</td></tr>";
@@ -110,6 +111,11 @@ class PluginWarrantycheckPreference extends CommonDBTM {
       Dropdown::showYesNo("checkvalidate", $self->fields["checkvalidate"]);
       echo "</td></tr>";
 
+      echo "<tr class='tab_bg_1 top'><td>" . __('Afficher les Bon de commande, Bon de livraison, Facture et devis si détécté', 'rp') . "</td>";
+      echo "<td>";
+      Dropdown::showYesNo("viewdoc", $self->fields["viewdoc"]);
+      echo "</td></tr>";
+
       // Générer les options du menu déroulant
       $dropdownValues = [];
       for ($i = 5; $i <= 100; $i += 5) {
@@ -118,7 +124,7 @@ class PluginWarrantycheckPreference extends CommonDBTM {
       // Ajouter l'option "Illimité" avec la valeur 9999
       $dropdownValues[9999] = "Illimité";
       echo "<tr class='tab_bg_1'>";
-         echo "<td>" . __("Nombre maximum de numéro de série à afficher", "gestion") . "</td><td>";
+         echo "<td>" . __("Nombre maximum d'éléments à afficher", "gestion") . "</td><td>";
             // Afficher le menu déroulant avec Dropdown::show()
             Dropdown::showFromArray(
                'maxserial',  // Nom de l'identifiant du champ

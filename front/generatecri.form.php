@@ -18,7 +18,7 @@ $UserID = Session::getLoginUserID();
       $Manufacturer = NULL;
    }
 
-   $serial = trim($_GET['serial']);
+   $serial = strtoupper(trim($_GET['serial']));
    $result = detectBrand($serial, $Manufacturer);
    
    $cle = uniqid('cri_', true);  // Clé unique

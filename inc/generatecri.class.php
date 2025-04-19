@@ -60,7 +60,7 @@ class PluginWarrantycheckGenerateCRI extends CommonGLPI {
 
          if (isset($_GET['cache_id'], $_SESSION['generatecri_cache'][$_GET['cache_id']])) {
             $result = $_SESSION['generatecri_cache'][$_GET['cache_id']];
-            $SN = $result['serial'];
+            $SN = $result['serial'] ?? null;
          }
 
          if(empty($result['serial'])){
@@ -72,7 +72,7 @@ class PluginWarrantycheckGenerateCRI extends CommonGLPI {
          // Formulaire
          echo '<div class="card mb-4 shadow-sm w-100">';
          echo '<div class="card-header bg-secondary text-white fw-bold">';
-         echo __('<i class="fas fa-search"></i>&nbsp;&nbsp; Vérification de garantie') . 
+         echo __('<i class="fas fa-search"></i>&nbsp;&nbsp; Vérification de garantie / Documents associés') . 
                  '&nbsp;<i class="fas fa-info-circle text-white" 
                   data-bs-toggle="popover" 
                   data-bs-html="true" 
@@ -127,7 +127,7 @@ class PluginWarrantycheckGenerateCRI extends CommonGLPI {
                echo '<br>';
                echo '<div class="d-flex justify-content-center">';
                   echo '<div class="input-group" style="max-width: 600px; width: 100%;">';
-                     echo '<input type="text" name="serial" id="serial" class="form-control" placeholder="Numéro de série" value="'.$SN.'" required>';
+                     echo '<input type="text" name="serial" id="serial" class="form-control" placeholder="Numéro de série / Devis / Facture / BC / BL" value="'.$SN.'" required>';
                      echo '<button type="submit" name="generatecri" id="sig-submitBtn" class="btn btn-primary">';
                         echo __('Vérifier la garantie');
                      echo '</button>';           
@@ -154,66 +154,76 @@ class PluginWarrantycheckGenerateCRI extends CommonGLPI {
                echo '</div>';
             echo '</div>'; // card-body
          echo '</div>'; // card
+         
+         // Liste des valeurs valides
+         $valeurs_ok = ['Devis', 'Facture', 'BonDeCommande', 'BonDeLivraison'];
 
-         // Résultat
-         if (isset($_GET['cache_id'], $_SESSION['generatecri_cache'][$_GET['cache_id']])) {
-            unset($_SESSION['generatecri_cache'][$_GET['cache_id']]);
+         // On récupère la valeur depuis l'URL
+         $fabricant = $_GET['fabricant'] ?? '';
 
-            if ($result && is_array($result)) {
-               // Détection de l'état de garantie
-               $warranty_status = strtolower(trim($result['warranty_status'] ?? ''));
-               $color_class = ($warranty_status === 'expired') ? 'bg-danger' : 'bg-success';
+         if (!in_array($fabricant, $valeurs_ok)) {
+            // Résultat
+            if (isset($_GET['cache_id'], $_SESSION['generatecri_cache'][$_GET['cache_id']])) {
+               unset($_SESSION['generatecri_cache'][$_GET['cache_id']]);
 
-               echo '<div class="card shadow-sm mt-4">';
-               echo '<div class="card-header ' . $color_class . ' text-white fw-bold">';
-               echo __('<i class="fas fa-info-circle"></i>&nbsp;&nbsp; Détails de la garantie') . ' ' . $result['fabricant'];
-               echo '</div>';
-               echo '<div class="card-body">';
-               echo '<strong>Fabricant : </strong>' . $result['fabricant'] . '<br><br>';
+               if ($result && is_array($result)) {
+                  // Détection de l'état de garantie
+                  $warranty_status = strtolower(trim($result['warranty_status'] ?? ''));
+                  $color_class = ($warranty_status === 'expired') ? 'bg-danger' : 'bg-success';
 
-               $labels = [
-                  'model' => 'Modèle',
-                  'serial' => 'N° Série',
-                  'product_number' => 'Réf. Produit',
-                  'warranty_start' => 'Début',
-                  'warranty_end' => 'Fin',
-                  'extended_warranty' => 'Extension',
-                  'warranty_type' => 'Type',
-                  'warranty_status' => 'Statut',
-                  'country' => 'Pays',
-                  'ship_date' => 'Expédié le',
-                  'description' => 'Description'
-               ];
-
-               echo '<div class="row">';
-               foreach ($labels as $key => $label) {
-                  $value = nl2br(htmlspecialchars($result[$key] ?? ''));
-                  echo '<div class="col-md-6 mb-2">';
-                  echo '<strong>' . $label . ' :</strong><br>' . $value;
+                  echo '<div class="card shadow-sm mt-4">';
+                  echo '<div class="card-header ' . $color_class . ' text-white fw-bold">';
+                  echo __('<i class="fas fa-info-circle"></i>&nbsp;&nbsp; Détails de la garantie') . ' ' . $result['fabricant'];
                   echo '</div>';
+                  echo '<div class="card-body">';
+                  echo '<strong>Fabricant : </strong>' . $result['fabricant'] . '<br><br>';
+
+                  $labels = [
+                     'model' => 'Modèle',
+                     'serial' => 'N° Série',
+                     'product_number' => 'Réf. Produit',
+                     'warranty_start' => 'Début',
+                     'warranty_end' => 'Fin',
+                     'extended_warranty' => 'Extension',
+                     'warranty_type' => 'Type',
+                     'warranty_status' => 'Statut',
+                     'country' => 'Pays',
+                     'ship_date' => 'Expédié le',
+                     'description' => 'Description'
+                  ];
+
+                  echo '<div class="row">';
+                  foreach ($labels as $key => $label) {
+                     $value = nl2br(htmlspecialchars($result[$key] ?? ''));
+                     echo '<div class="col-md-6 mb-2">';
+                     echo '<strong>' . $label . ' :</strong><br>' . $value;
+                     echo '</div>';
+                  }
+                  echo '</div>'; // row
+                  echo '</div></div>'; // card-body + card
+
+                  require_once '../front/warranty_functions.php';
+                  insertSurveyData([
+                     'serial_number' => $result['serial'],
+                     'model'         => $result['model'],
+                     'fabricant'     => $result['fabricant'],
+                     'date_start'    => $result['warranty_start'],
+                     'date_end'      => $result['warranty_end'],
+                  ]);
+
+                  $noresultsn = true;
+               } else {
+                  echo '<div class="alert alert-danger mt-4">Erreur : Aucune donnée retournée ou numéro invalide.</div>';
+                  $noresultsn = false;
                }
-               echo '</div>'; // row
-               echo '</div></div>'; // card-body + card
-
-               require_once '../front/warranty_functions.php';
-               insertSurveyData([
-                  'serial_number' => $result['serial'],
-                  'model'         => $result['model'],
-                  'fabricant'     => $result['fabricant'],
-                  'date_start'    => $result['warranty_start'],
-                  'date_end'      => $result['warranty_end'],
-               ]);
-
-               $noresultsn = true;
             } else {
-               echo '<div class="alert alert-danger mt-4">Erreur : Aucune donnée retournée ou numéro invalide.</div>';
-               $noresultsn = false;
+               if (isset($_GET['cache_id'])) {
+                  echo '<div class="alert alert-danger mt-4">Erreur : Aucune donnée retournée (Erreur serveur '.$_GET['fabricant'].'), Fabricant non détécté ou numéro invalide.</div>';
+                  $noresultsn = false;
+               }
             }
-         } else {
-            if (isset($_GET['cache_id'])) {
-               echo '<div class="alert alert-danger mt-4">Erreur : Aucune donnée retournée (Erreur serveur '.$_GET['fabricant'].'), Fabricant non détécté ou numéro invalide.</div>';
-               $noresultsn = false;
-            }
+         }else{
+            $noresultsn = true;
          }
          
          if ($noresultsn == true){
@@ -239,7 +249,7 @@ class PluginWarrantycheckGenerateCRI extends CommonGLPI {
                $result = $DB->query($tickets_query);
             
                echo '<br><div class="card mb-4 shadow-sm w-100">
-                        <div class="card-header bg-dark text-white fw-bold">Tickets liés au numéro de série : ' . htmlspecialchars($SN) . '</div>
+                        <div class="card-header bg-dark text-white fw-bold">Tickets liés à l\'élément : ' . htmlspecialchars($SN) . '</div>
                         <div class="card-body">
                         <div class="table-responsive">
                         <table class="table table-bordered table-hover">
@@ -291,7 +301,7 @@ class PluginWarrantycheckGenerateCRI extends CommonGLPI {
             
                echo '</tbody></table></div></div></div>';
             } else {
-               echo '<br><div class="alert alert-info mb-4 w-100">Aucun ticket associé au numéro de série <strong>' . htmlspecialchars($SN) . '</strong>.</div>';
+               echo '<br><div class="alert alert-info mb-4 w-100">Aucun ticket associé à l\'élément :  <strong>' . htmlspecialchars($SN) . '</strong>.</div>';
             }
             
             // Active les tooltips Bootstrap

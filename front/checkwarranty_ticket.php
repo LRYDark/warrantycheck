@@ -121,16 +121,20 @@ $result = $DB->query("
    SELECT
       t.content AS ticket_content,
       tt.content AS task_content,
-      f.content AS followup_content
+      f.content AS followup_content,
+      tv.comment_submission AS validation_comment,
+      s.content AS solution_content
    FROM glpi_tickets t
    LEFT JOIN glpi_tickettasks tt ON t.id = tt.tickets_id
    LEFT JOIN glpi_itilfollowups f ON t.id = f.items_id
+   LEFT JOIN glpi_ticketvalidations tv ON t.id = tv.tickets_id
+   LEFT JOIN glpi_itilsolutions s ON s.items_id = t.id AND s.itemtype = 'Ticket'
    WHERE t.id = $Ticket_id
 ");
 
 $all_text = '';
 while ($row = $DB->fetchassoc($result)) {
-   foreach (['ticket_content', 'task_content', 'followup_content'] as $field) {
+   foreach (['ticket_content', 'task_content', 'followup_content', 'validation_comment', 'solution_content'] as $field) {
       if (!empty($row[$field])) {
             $all_text .= "\n" . $row[$field];
       }
@@ -145,103 +149,115 @@ $liste = array_map(function($s) {
 
 $resultats = [];
 require_once PLUGIN_WARRANTYCHECK_DIR . '/front/warranty_functions.php';
-$group   = new PluginWarrantycheckPreference();
 $config = new PluginWarrantycheckConfig();
 $userid = Session::getLoginUserID();
 $result = $DB->query("SELECT * FROM `glpi_plugin_warrantycheck_preferences` WHERE users_id = $userid")->fetch_object();
 $statuswarranty = $result->statuswarranty;
 $max = $result->maxserial; // Exemple : l'utilisateur définit la limite à 20
+$viewdoc = $result->viewdoc; // Exemple : l'utilisateur définit la limite à 20
 $resultats = [];
 
 foreach ($liste as $serial) {
 
+    $BonLivraisonPrefixes = $config->Filtre_BonDeLivraison() ? explode(',', $config->Filtre_BonDeLivraison()) : [];
+    $DevisPrefixes = $config->Filtre_Devis() ? explode(',', $config->Filtre_Devis()) : [];
+    $FacturePrefixes = $config->Filtre_Facture() ? explode(',', $config->Filtre_Facture()) : [];
+    $BonCommadePrefixes = $config->Filtre_BonDeCommande() ? explode(',', $config->Filtre_BonDeCommande()) : [];
+
+    // Tableau des préfixes associés à chaque constructeur
+    $brandPrefixes = [
+        'Bon de commande : '  => $BonCommadePrefixes,
+        'Bon de livraison : ' => $BonLivraisonPrefixes,
+        'Facture : '          => $FacturePrefixes,
+        'Devis : '            => $DevisPrefixes,
+    ];
+
+    $found = false;
+    $nodoc = 1;
+
+    foreach ($brandPrefixes as $label => $prefixes) {
+        foreach ($prefixes as $prefix) {
+            if (stripos($serial, trim($prefix)) === 0) {
+                $found = true;
+                if($viewdoc == 0) $nodoc = 0; // On a trouvé un numéro de série qui correspond à un préfixe
+                break 2; // On sort dès qu'on trouve
+            }
+        }
+    }
+
     if($statuswarranty === 1){
         $infos = detectBrand($serial, $Manufacturer = null);
 
-        //if (isset($infos) && is_array($infos) && isset($infos['fabricant'], $infos['warranty_start'], $infos['warranty_end'], $infos['serial'])) {
-            insertSurveyData([
-                'tickets_id'    => $Ticket_id,
-                'serial_number' => $infos['serial'] ?? $serial,
-                'model'         => $infos['model'] ?? null,
-                'fabricant'     => $infos['fabricant'] ?? null,
-                'date_start'    => $infos['warranty_start'] ?? null,
-                'date_end'      => $infos['warranty_end'] ?? null,
-            ]);
-        //}
-    
+        insertSurveyData([
+            'tickets_id'    => $Ticket_id,
+            'serial_number' => $infos['serial'] ?? $serial,
+            'model'         => $infos['model'] ?? null,
+            'fabricant'     => $infos['fabricant'] ?? null,
+            'date_start'    => $infos['warranty_start'] ?? null,
+            'date_end'      => $infos['warranty_end'] ?? null,
+        ]);
+
         if (isset($infos) && is_array($infos) && array_key_exists('fabricant', $infos) && $infos['fabricant'] != null && $infos['info'] === 'serialnumber') {
             if (count($resultats) < $max) {
-                $resultats[] = [
-                    'serial' => $serial,
-                    'fabricant' => $infos['fabricant'] ?? '',
-                    'warranty_status' => $infos['warranty_status'] ?? '',
-                    'info' => 'Numéro de serie : '
-                ];
+                if ($nodoc == 1) {
+                    $resultats[] = [
+                        'serial' => $serial,
+                        'fabricant' => $infos['fabricant'] ?? '',
+                        'warranty_status' => $infos['warranty_status'] ?? '',
+                        'info' => 'Numéro de serie : '
+                    ];
+                }
             }
         }else{
             if (count($resultats) < $max) {
                 if (is_array($infos) && isset($infos['fabricant']) && in_array($infos['fabricant'], ['Bon de commande', 'Bon de livraison', 'Facture', 'Devis'])){
-                    $resultats[] = [
-                        'serial' => $serial,
-                        'info' => $infos['info'] ?? ''
-                    ];
+                    if ($nodoc == 1) {
+                        $resultats[] = [
+                            'serial' => $serial,
+                            'info' => $infos['info'] ?? ''
+                        ];
+                    }
                 } else {
-                    $resultats[] = [
-                        'serial' => $serial,
-                        'warranty_status' => 'Inconnu ou API erreur',
-                        'info' => 'Numéro de serie : '
-                    ];
+                    if ($nodoc == 1) {
+                        $resultats[] = [
+                            'serial' => $serial,
+                            'warranty_status' => 'Inconnu ou API erreur',
+                            'info' => 'Numéro de serie : '
+                        ];
+                    }
                 }
                 
             }
         }
     }else{
         if (count($resultats) < $max) {
-            $resultat = ['serial' => $serial];
-
-            $BonLivraisonPrefixes = $config->Filtre_BonDeLivraison() ? explode(',', $config->Filtre_BonDeLivraison()) : [];
-            $DevisPrefixes = $config->Filtre_Devis() ? explode(',', $config->Filtre_Devis()) : [];
-            $FacturePrefixes = $config->Filtre_Facture() ? explode(',', $config->Filtre_Facture()) : [];
-            $BonCommadePrefixes = $config->Filtre_BonDeCommande() ? explode(',', $config->Filtre_BonDeCommande()) : [];
-
-            // Tableau des préfixes associés à chaque constructeur
-            $brandPrefixes = [
-                'Bon de commande : '  => $BonCommadePrefixes,
-                'Bon de livraison : ' => $BonLivraisonPrefixes,
-                'Facture : '          => $FacturePrefixes,
-                'Devis : '            => $DevisPrefixes,
-            ];
-
-            $found = false;
-
-            foreach ($brandPrefixes as $label => $prefixes) {
-                foreach ($prefixes as $prefix) {
-                    if (stripos($serial, trim($prefix)) === 0) {
-                        $resultat['info'] = $label;
-                        $found = true;
-                        break 2; // On sort dès qu'on trouve
-                    }
-                }
+            if ($nodoc == 1) {
+                $resultat = ['serial' => $serial];
             }
     
             if (!$found) {
-                $resultat['info'] = 'Numéro de série : ';
+                if ($nodoc == 1) {
+                    $resultat['info'] = 'Numéro de série : ';
+                }
                 insertSurveyData([
                     'tickets_id'    => $Ticket_id,
                     'serial_number' => $serial,
                 ]);
             }else{
+                if ($nodoc == 1) {
+                    $resultat['info'] = $label;
+                }
                 insertSurveyData([
                     'tickets_id'    => $Ticket_id,
                     'serial_number' => $serial,
                     'fabricant'     => rtrim($label, ' :'),
                 ]);
             }
-    
-            $resultats[] = $resultat;
+            if ($nodoc == 1) {
+                $resultats[] = $resultat;
+            }
         }
     }
-
 }
 
 header('Content-Type: application/json');
