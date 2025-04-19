@@ -189,7 +189,6 @@ class PluginWarrantycheckTicket extends CommonDBTM {
       }
    }
    
-
    static function postShowItemNewTaskWARRANTYCHECK($params) {
       global $DB, $CFG_GLPI, $warrantycheck;
       $config = new PluginWarrantycheckConfig();
@@ -204,8 +203,10 @@ class PluginWarrantycheckTicket extends CommonDBTM {
 
       $entities_id = 0;
       $idticket = $_GET['id'];
-      if($query = $DB->query("SELECT entities_id FROM `glpi_tickets` WHERE id = $idticket")->fetch_object()){
-         $entities_id = $query->entities_id;
+      if($idticket){
+         if($query = $DB->query("SELECT entities_id FROM `glpi_tickets` WHERE id = $idticket")->fetch_object()){
+            $entities_id = $query->entities_id;
+         }
       }
 
       // Vérifier si l'URL contient 'id != 0'
