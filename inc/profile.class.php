@@ -57,7 +57,7 @@ class PluginWarrantycheckProfile extends Profile {
          ['itemtype' => 'PluginWarrantycheckConfig',
             'label'    => __('Garantie', 'warrantycheck'),
             'field'    => 'plugin_warrantycheck',
-            'rights'   => [READ    => __('Read'), PURGE  => __('Purge')]
+            'rights'   => [READ    => __('Read'), PURGE  => __('Purge'), UPDATE  => __('Update')]
          ],
          ['itemtype' => 'PluginWarrantycheckConfig',
             'label'    => __('Garantie Survey', 'warrantycheck'),

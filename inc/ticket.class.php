@@ -99,7 +99,7 @@ class PluginWarrantycheckTicket extends CommonDBTM {
 
       if (!Session::haveRight(Entity::$rightname, READ)) return false;
    
-      $canedit = Session::haveRight(Entity::$rightname, PURGE)
+      $canedit = Session::haveRight(Entity::$rightname, UPDATE)
          || ($ticket->canEdit($ID) && !in_array($ticket->fields['status'], array_merge(Ticket::getSolvedStatusArray(), Ticket::getClosedStatusArray())));
    
       echo "<div class='spaced'>";
@@ -108,30 +108,59 @@ class PluginWarrantycheckTicket extends CommonDBTM {
       echo "</table></div>";
    
       if ($count > 0) {
-         if ($canedit) {
-            echo Html::getOpenMassiveActionsForm('mass'.__CLASS__.$rand);
-            $massiveactionparams = [
-               'num_displayed'    => $count,
-               'container'        => 'mass'.__CLASS__.$rand,
-               'rand'             => $rand,
-               'display'          => false,
-               'specific_actions' => [
-                  'purge' => _x('button', 'Supprimer définitivement de GLPI')
-               ]
-            ];
-            echo Html::showMassiveActions($massiveactionparams);
+         if (Session::haveRight('plugin_warrantycheck', PURGE) || Session::haveRight('plugin_warrantycheck', UPDATE)){
+            if ($canedit) {
+               echo Html::getOpenMassiveActionsForm('mass'.__CLASS__.$rand);
+               if (Session::haveRight('plugin_warrantycheck', PURGE)){
+                  $massiveactionparams = [
+                     'num_displayed'    => $count,
+                     'container'        => 'mass'.__CLASS__.$rand,
+                     'rand'             => $rand,
+                     'display'          => false,
+                     'specific_actions' => [
+                        'purge' => _x('button', 'Supprimer définitivement de GLPI')
+                     ]
+                  ];
+               }
+               if (Session::haveRight('plugin_warrantycheck', UPDATE)){
+                  $massiveactionparams = [
+                     'num_displayed'    => $count,
+                     'container'        => 'mass'.__CLASS__.$rand,
+                     'rand'             => $rand,
+                     'display'          => false,
+                     'specific_actions' => [
+                        'update' => _x('button', 'Update')
+                     ]
+                  ];
+               }
+               if (Session::haveRight('plugin_warrantycheck', PURGE) && Session::haveRight('plugin_warrantycheck', UPDATE)){
+                  $massiveactionparams = [
+                     'num_displayed'    => $count,
+                     'container'        => 'mass'.__CLASS__.$rand,
+                     'rand'             => $rand,
+                     'display'          => false,
+                     'specific_actions' => [
+                        'update' => _x('button', 'Update'),
+                        'purge' => _x('button', 'Supprimer définitivement de GLPI')
+                     ]
+                  ];
+               }
+               echo Html::showMassiveActions($massiveactionparams);
+            }
          }
    
          echo "<table class='tab_cadre_fixehov'>";
          $header = "<tr>";
    
-         if ($canedit) {
-            $header .= "<th width='10'>" . Html::getCheckAllAsCheckbox('mass'.__CLASS__.$rand) . "</th>";
+         if (Session::haveRight('plugin_warrantycheck', PURGE) || Session::haveRight('plugin_warrantycheck', UPDATE)){
+            if ($canedit) {
+               $header .= "<th width='10'>" . Html::getCheckAllAsCheckbox('mass'.__CLASS__.$rand) . "</th>";
+            }
          }
    
          $header .= "<th class='center'>" . __('Numéro de série') . "</th>";
          $header .= "<th class='center'>" . __('Modèle') . "</th>";
-         $header .= "<th class='center'>" . __('Fabricant') . "</th>";
+         $header .= "<th class='center'>" . __('Fabricant / Élément') . "</th>";
          $header .= "<th class='center'>" . __('Date de début') . "</th>";
          $header .= "<th class='center'>" . __('Date de fin') . "</th>";
          $header .= "<th class='center'>" . __('Statut de garantie') . "</th>";
@@ -163,8 +192,10 @@ class PluginWarrantycheckTicket extends CommonDBTM {
    
             echo "<tr class='tab_bg_2'>";
    
-            if ($canedit) {
-               echo "<td>" . Html::getMassiveActionCheckBox(__CLASS__, $id) . "</td>";
+            if (Session::haveRight('plugin_warrantycheck', PURGE) || Session::haveRight('plugin_warrantycheck', UPDATE)){
+               if ($canedit) {
+                  echo "<td>" . Html::getMassiveActionCheckBox(__CLASS__, $id) . "</td>";
+               }
             }
    
             echo "<td class='center'>$serial</td>";
@@ -178,10 +209,12 @@ class PluginWarrantycheckTicket extends CommonDBTM {
    
          echo "</table>";
    
-         if ($canedit) {
-            $massiveactionparams['ontop'] = false;
-            echo Html::showMassiveActions($massiveactionparams);
-            echo Html::closeForm(false);
+         if (Session::haveRight('plugin_warrantycheck', PURGE) || Session::haveRight('plugin_warrantycheck', UPDATE)){
+            if ($canedit) {
+               $massiveactionparams['ontop'] = false;
+               echo Html::showMassiveActions($massiveactionparams);
+               echo Html::closeForm(false);
+            }
          }
    
       } else {
@@ -376,6 +409,61 @@ class PluginWarrantycheckTicket extends CommonDBTM {
             }
          }
       }
+   }
+
+   function rawSearchOptions() {
+      $tab = parent::rawSearchOptions();
+      $table = 'glpi_plugin_warrantycheck_tickets';
+
+      $tab[] = [
+         'id'       => 880,
+         'table'    => $table,
+         'field'    => 'serial_number',
+         'name'     => __("Numéro de serie", 'warrantycheck'),
+         'datatype' => 'string',
+      ];
+
+      $tab[] = [
+         'id'       => 881,
+         'table'    => $table,
+         'field'    => 'date_start',
+         'name'     => __("Date de debut de garantie", 'warrantycheck'),
+         'datatype' => 'date',
+      ];
+
+      $tab[] = [
+         'id'       => 882,
+         'table'    => $table,
+         'field'    => 'date_end',
+         'name'     => __("Date de fin de garantie", 'warrantycheck'),
+         'datatype' => 'date',
+      ];
+
+      $tab[] = [
+         'id'       => 883,
+         'table'    => $table,
+         'field'    => 'date_start',
+         'name'     => __("Date de debut de garantie", 'warrantycheck'),
+         'datatype' => 'date',
+      ];
+
+      $tab[] = [
+         'id'       => 884,
+         'table'    => $table,
+         'field'    => 'model',
+         'name'     => __("Model", 'warrantycheck'),
+         'datatype' => 'string',
+      ];
+
+      $tab[] = [
+         'id'       => 885,
+         'table'    => $table,
+         'field'    => 'fabricant',
+         'name'     => __("fabricant", 'warrantycheck'),
+         'datatype' => 'string',
+      ];
+      
+      return $tab;
    }
     
    static function install(Migration $migration) { // fonction intsllation de la table en BDD

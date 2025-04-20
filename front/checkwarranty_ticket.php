@@ -175,6 +175,7 @@ foreach ($liste as $serial) {
     $found = false;
     $nodoc = 1;
     $nodocconf = 1;
+    $model = null;
 
     foreach ($brandPrefixes as $label => $prefixes) {
         foreach ($prefixes as $prefix) {
@@ -250,9 +251,16 @@ foreach ($liste as $serial) {
                     if ($nodoc == 1) {
                         $resultat['info'] = $label;
                     }
+                    if($config->related_elements() == 1){
+                        if (rtrim($label, ' :') == 'Bon de commande') $model = 'BC' ?? null;
+                        if (rtrim($label, ' :') == 'Bon de livraison') $model = 'BL' ?? null;
+                        if (rtrim($label, ' :') == 'Facture') $model = 'FA' ?? null;
+                        if (rtrim($label, ' :') == 'Devis') $model = 'DE' ?? null;
+                    }  
                     insertSurveyData([
                         'tickets_id'    => $Ticket_id,
                         'serial_number' => $serial,
+                        'model'         => $model ?? null,
                         'fabricant'     => rtrim($label, ' :'),
                     ]);
                 }

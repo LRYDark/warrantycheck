@@ -93,56 +93,56 @@ class PluginWarrantycheckConfig extends CommonDBTM
       echo "<tr><th colspan='2'>" . __('Filtres des numéros de série par Préfixes', 'gestion') . "</th></tr>";
       echo "<tr class='tab_bg_1'>";
          echo "<td>" . __("Filtre HP", "gestion") . "</td><td>";
-            echo Html::input('Filtre_HP', ['value' => $config->Filtre_HP(), 'size' => 80]);// bouton configuration du bas de page line 1
+            echo Html::input('Filtre_HP', ['value' => $config->Filtre_HP(), 'size' => 80, 'style' => 'text-transform: uppercase;']);// bouton configuration du bas de page line 1
          echo "</td>";
       echo "</tr>";
 
       echo "<tr class='tab_bg_1'>";
          echo "<td>" . __("Filtre Lenovo", "gestion") . "</td><td>";
-            echo Html::input('Filtre_Lenovo', ['value' => $config->Filtre_Lenovo(), 'size' => 80]);// bouton configuration du bas de page line 1
+            echo Html::input('Filtre_Lenovo', ['value' => $config->Filtre_Lenovo(), 'size' => 80, 'style' => 'text-transform: uppercase;']);// bouton configuration du bas de page line 1
          echo "</td>";
       echo "</tr>";
 
       echo "<tr class='tab_bg_1'>";
          echo "<td>" . __("Filtre Dell", "gestion") . "</td><td>";
-            echo Html::input('Filtre_Dell', ['value' => $config->Filtre_Dell(), 'size' => 80]);// bouton configuration du bas de page line 1
+            echo Html::input('Filtre_Dell', ['value' => $config->Filtre_Dell(), 'size' => 80, 'style' => 'text-transform: uppercase;']);// bouton configuration du bas de page line 1
          echo "</td>";
       echo "</tr>";
 
       echo "<tr class='tab_bg_1'>";
          echo "<td>" . __("Filtre Dynabook", "gestion") . "</td><td>";
-            echo Html::input('Filtre_Dynabook', ['value' => $config->Filtre_Dynabook(), 'size' => 80]);// bouton configuration du bas de page line 1
+            echo Html::input('Filtre_Dynabook', ['value' => $config->Filtre_Dynabook(), 'size' => 80, 'style' => 'text-transform: uppercase;']);// bouton configuration du bas de page line 1
          echo "</td>";
       echo "</tr>";
 
       echo "<tr class='tab_bg_1'>";
          echo "<td>" . __("Filtre Terra", "gestion") . "</td><td>";
-            echo Html::input('Filtre_Terra', ['value' => $config->Filtre_Terra(), 'size' => 80]);// bouton configuration du bas de page line 1
+            echo Html::input('Filtre_Terra', ['value' => $config->Filtre_Terra(), 'size' => 80, 'style' => 'text-transform: uppercase;']);// bouton configuration du bas de page line 1
          echo "</td>";
       echo "</tr>";
 
       // facture, devis, bon de livraison, bon de commande
       echo "<tr class='tab_bg_1'>";
          echo "<td>" . __("Filtre Devis", "gestion") . "</td><td>";
-            echo Html::input('Filtre_Devis', ['value' => $config->Filtre_Devis(), 'size' => 80]);// bouton configuration du bas de page line 1
+            echo Html::input('Filtre_Devis', ['value' => $config->Filtre_Devis(), 'size' => 80, 'style' => 'text-transform: uppercase;']);// bouton configuration du bas de page line 1
          echo "</td>";
       echo "</tr>";
 
       echo "<tr class='tab_bg_1'>";
          echo "<td>" . __("Filtre Facture", "gestion") . "</td><td>";
-            echo Html::input('Filtre_Facture', ['value' => $config->Filtre_Facture(), 'size' => 80]);// bouton configuration du bas de page line 1
+            echo Html::input('Filtre_Facture', ['value' => $config->Filtre_Facture(), 'size' => 80, 'style' => 'text-transform: uppercase;']);// bouton configuration du bas de page line 1
          echo "</td>";
       echo "</tr>";
 
       echo "<tr class='tab_bg_1'>";
          echo "<td>" . __("Filtre Bon de livraison", "gestion") . "</td><td>";
-            echo Html::input('Filtre_BonDeLivraison', ['value' => $config->Filtre_BonDeLivraison(), 'size' => 80]);// bouton configuration du bas de page line 1
+            echo Html::input('Filtre_BonDeLivraison', ['value' => $config->Filtre_BonDeLivraison(), 'size' => 80, 'style' => 'text-transform: uppercase;']);// bouton configuration du bas de page line 1
          echo "</td>";
       echo "</tr>";
 
       echo "<tr class='tab_bg_1'>";
          echo "<td>" . __("Filtre Bon de commande", "gestion") . "</td><td>";
-            echo Html::input('Filtre_BonDeCommande', ['value' => $config->Filtre_BonDeCommande(), 'size' => 80]);// bouton configuration du bas de page line 1
+            echo Html::input('Filtre_BonDeCommande', ['value' => $config->Filtre_BonDeCommande(), 'size' => 80, 'style' => 'text-transform: uppercase;']);// bouton configuration du bas de page line 1
          echo "</td>";
       echo "</tr>";
       //-------------------
@@ -150,10 +150,10 @@ class PluginWarrantycheckConfig extends CommonDBTM
       echo "<tr><th colspan='2'>" . __('Blacklist pour le fitre des numéros de série', 'gestion') . "</th></tr>";
       echo "<tr class='tab_bg_1'>";
          echo "<td>" . __("Blacklist", "gestion") . "</td><td>";
-            echo Html::textarea([
+            Html::textarea([
                'name'  => 'blacklist',
                'value' => $config->blacklist(),
-               'rows'  => 10
+               'rows'  => 10,
             ]);
          echo "</td>";
       echo "</tr>";

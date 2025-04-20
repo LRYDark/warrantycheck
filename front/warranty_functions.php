@@ -54,7 +54,6 @@ function insertSurveyData(array $data) {
             Toolbox::logDebug("PluginWarrantyCheck", "Insert error: " . $e->getMessage());
         }
     }
-
 }
 
 function select($serial, $Manufacturer){
@@ -75,22 +74,26 @@ function select($serial, $Manufacturer){
         case 'BonDeCommande':
             return [
                 'info' => 'Bon de commande : ',
-                'fabricant' => 'Bon de commande'
+                'fabricant' => 'Bon de commande',
+                'model' => 'BC'
             ];
         case 'BonDeLivraison':
             return [
                 'info' => 'Bon de livraison : ',
-                'fabricant' => 'Bon de livraison'
+                'fabricant' => 'Bon de livraison',
+                'model' => 'BL'
             ];
         case 'Facture':
             return [
                 'info' => 'Facture : ',
-                'fabricant' => 'Facture'
+                'fabricant' => 'Facture',
+                'model' => 'FA'
             ];
         case 'Devis':
             return [
                 'info' => 'Devis : ',
-                'fabricant' => 'Devis'
+                'fabricant' => 'Devis',
+                'model' => 'DE'
             ];
         // Ajoutez d'autres cas pour les constructeurs supplémentaires
     }
@@ -111,10 +114,12 @@ function detectBrand($serial, $Manufacturer) {
         $dynabookPrefixes = $config->Filtre_Dynabook() ? explode(',', $config->Filtre_Dynabook()) : [];
         $terraPrefixes = $config->Filtre_Terra() ? explode(',', $config->Filtre_Terra()) : [];
 
-        $BonLivraisonPrefixes = $config->Filtre_BonDeLivraison() ? explode(',', $config->Filtre_BonDeLivraison()) : [];
-        $DevisPrefixes = $config->Filtre_Devis() ? explode(',', $config->Filtre_Devis()) : [];
-        $FacturePrefixes = $config->Filtre_Facture() ? explode(',', $config->Filtre_Facture()) : [];
-        $BonCommadePrefixes = $config->Filtre_BonDeCommande() ? explode(',', $config->Filtre_BonDeCommande()) : [];
+        if ($config->related_elements() == 1){
+            $BonLivraisonPrefixes = $config->Filtre_BonDeLivraison() ? explode(',', $config->Filtre_BonDeLivraison()) : [];
+            $DevisPrefixes = $config->Filtre_Devis() ? explode(',', $config->Filtre_Devis()) : [];
+            $FacturePrefixes = $config->Filtre_Facture() ? explode(',', $config->Filtre_Facture()) : [];
+            $BonCommadePrefixes = $config->Filtre_BonDeCommande() ? explode(',', $config->Filtre_BonDeCommande()) : [];        
+        }
 
         // Tableau des préfixes associés à chaque constructeur
         $brandPrefixes = [
@@ -123,11 +128,17 @@ function detectBrand($serial, $Manufacturer) {
             'Dell' => $dellPrefixes, 
             'Dynabook' => $dynabookPrefixes,
             'Terra' => $terraPrefixes,
-            'BonDeCommande' => $BonCommadePrefixes,
-            'BonDeLivraison' => $BonLivraisonPrefixes,
-            'Facture' => $FacturePrefixes,
-            'Devis' => $DevisPrefixes,
         ];
+
+        if ($config->related_elements() == 1){
+            // Tableau des préfixes associés à chaque constructeur
+            $brandPrefixes = array_merge($brandPrefixes, [
+                'BonDeCommande' => $BonCommadePrefixes,
+                'BonDeLivraison' => $BonLivraisonPrefixes,
+                'Facture' => $FacturePrefixes,
+                'Devis' => $DevisPrefixes,
+            ]);
+        }
 
         // Variable pour suivre le constructeur par défaut
         $defaultBrand = null;

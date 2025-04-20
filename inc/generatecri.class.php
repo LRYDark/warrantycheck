@@ -55,6 +55,7 @@ class PluginWarrantycheckGenerateCRI extends CommonGLPI {
          echo '<div id="main-content">';
          global $DB, $CFG_GLPI;
          $UserID = Session::getLoginUserID();
+         $config = new PluginWarrantycheckConfig();
          $SN = null;
          $noresultsn = false;
 
@@ -89,7 +90,6 @@ class PluginWarrantycheckGenerateCRI extends CommonGLPI {
          echo '</div>';
 
          echo '<div class="card-body">';
-            
             echo "<form method='get' id='myForm' action='" . self::getFormUrl() . "' class='mb-4'>";
                echo '<div class="d-flex flex-wrap justify-content-center">';
                   // Première ligne (HP, Dell, Lenovo)
@@ -127,9 +127,13 @@ class PluginWarrantycheckGenerateCRI extends CommonGLPI {
                echo '<br>';
                echo '<div class="d-flex justify-content-center">';
                   echo '<div class="input-group" style="max-width: 600px; width: 100%;">';
-                     echo '<input type="text" name="serial" id="serial" class="form-control" placeholder="Numéro de série / Devis / Facture / BC / BL" value="'.$SN.'" required>';
+                     if ($config->related_elements() == 1){
+                        echo '<input type="text" name="serial" id="serial" class="form-control" placeholder="Numéro de série / Devis / Facture / BC / BL" value="'.$SN.'" required>';
+                     }else{
+                        echo '<input type="text" name="serial" id="serial" class="form-control" placeholder="Numéro de série" value="'.$SN.'" required>';
+                     }
                      echo '<button type="submit" name="generatecri" id="sig-submitBtn" class="btn btn-primary">';
-                        echo __('Vérifier la garantie');
+                        echo __('Rechercher');
                      echo '</button>';           
                   echo '</div>';
                echo '</div>';
@@ -154,9 +158,13 @@ class PluginWarrantycheckGenerateCRI extends CommonGLPI {
                echo '</div>';
             echo '</div>'; // card-body
          echo '</div>'; // card
-         
+
          // Liste des valeurs valides
-         $valeurs_ok = ['Devis', 'Facture', 'BonDeCommande', 'BonDeLivraison'];
+         if ($config->related_elements() == 1){
+            $valeurs_ok = ['Devis', 'Facture', 'BonDeCommande', 'BonDeLivraison'];
+         }else{
+            $valeurs_ok = [];
+         }
 
          // On récupère la valeur depuis l'URL
          $fabricant = $_GET['fabricant'] ?? '';
