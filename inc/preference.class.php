@@ -90,6 +90,7 @@ class PluginWarrantycheckPreference extends CommonDBTM {
 
       $self = new self();
       $self->getFromDB($ID);
+      $config = new PluginWarrantycheckConfig();
       
       echo "<form action='" . $target . "' method='post'>";
       echo "<div align='center'>";
@@ -111,10 +112,12 @@ class PluginWarrantycheckPreference extends CommonDBTM {
       Dropdown::showYesNo("checkvalidate", $self->fields["checkvalidate"]);
       echo "</td></tr>";
 
-      echo "<tr class='tab_bg_1 top'><td>" . __('Afficher les Bon de commande, Bon de livraison, Facture et devis si détécté', 'rp') . "</td>";
-      echo "<td>";
-      Dropdown::showYesNo("viewdoc", $self->fields["viewdoc"]);
-      echo "</td></tr>";
+      if ($config->related_elements() == 1){
+         echo "<tr class='tab_bg_1 top'><td>" . __('Afficher les Bon de commande, Bon de livraison, Facture et devis si détécté', 'rp') . "</td>";
+         echo "<td>";
+         Dropdown::showYesNo("viewdoc", $self->fields["viewdoc"]);
+         echo "</td></tr>";
+      }
 
       // Générer les options du menu déroulant
       $dropdownValues = [];

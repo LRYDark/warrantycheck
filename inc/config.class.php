@@ -54,6 +54,12 @@ class PluginWarrantycheckConfig extends CommonDBTM
       $config->getFromDB(1);
 
       $config->showFormHeader(['colspan' => 4]);
+
+      echo "<tr><th colspan='2'>" . __('Extraction des éléments liées', 'gestion') . "</th></tr>";
+      echo "<tr class='tab_bg_1 top'><td>" . __('Recherche des Devis, Factures, Bon de commandes, Bon de livraisons', 'rp') . "</td>";
+         echo "<td>";
+         Dropdown::showYesNo("related_elements", $config->related_elements());
+      echo "</td></tr>";
      
       // Dell
       echo "<tr><th colspan='2'>" . __('Dell', 'gestion') . "</th></tr>";
@@ -204,6 +210,10 @@ class PluginWarrantycheckConfig extends CommonDBTM
    {
       return ($this->fields['blacklist']);
    }
+   function related_elements()
+   {
+      return ($this->fields['related_elements']);
+   }
  
  
    function ClientID_Dell(){
@@ -267,6 +277,7 @@ class PluginWarrantycheckConfig extends CommonDBTM
                   `Filtre_Facture` TEXT NULL DEFAULT 'FA',
                   `Filtre_BonDeLivraison` TEXT NULL DEFAULT 'BL',
                   `Filtre_BonDeCommande` TEXT NULL DEFAULT 'BC',
+                  `related_elements` INT(10) NULL DEFAULT '1',
                   `blacklist` MEDIUMTEXT NULL DEFAULT 'FR1009626,fr,FR,08H00,08H30,09H00,09H30,10H00,11H00,12H00,13H30,17H00,ABEND,ABTEILUNG,ACCUEIL,ADDRESS,ADMINISTRATION,ADRESSE,AFTERNOON,AGENT,ANFRAGE,ANNÉE,ANRUF,APPEL,APRÈS-MIDI,ASSISTANCE,AUSBILDUNG,AUSTAUSCH,AUTHORIZATION,AUTORISATION,Backup,Beispiel,Benutzer,Bonjour,Building,BÂTIMENT,CALL,CAS,CASE,CD54,CENTER,CENTRE,CHECK,CLIENT,COLLÈGE,COMMUNICATION,COMPUTER,CONFIGURATION,CONNECTION,CONNEXION,DANKE,DATA,DATEN,DAY,DAYS,DEMANDE,DEPARTEMENT54,DEPARTMENT,DIENST,DIRECTION,DONNÉES,DRUCKER,DSI,EBENE,EINSATZ,EMAIL,EMPFANG,ESCALIER,ETAGE,EVENING,EXAMPLE,EXEMPLE,FAILURE,FALL,FEHLER,FIRSTNAME,FLOOR,FOG-PRG-S110-00,FORMATION,GEBÄUDE,GENEHMIGUNG,GLPI,HALLO,HARDWARE,HELLO,HEURES,HILFE,HOURS,IMPRIMANTE,INCIDENT,INTERVENANT,INTERVENTION,ITIL,JAHR,JOUR,JOURS,KOMMUNIKATION,KONFIGURATION,KUNDE,LAPTOP,LASTNAME,LEVEL,LOGICIEL,LYCÉE,MACHINE,MAINTENANCE,MASCHINE,MATERIAL,MATIN,MATÉRIEL,MERCI,MITARBEITER,MODEL,MODELL,MODÈLE,MOIS,MONAT,MONTH,MORGEN,MORNING,NACHMITTAG,NACHNAME,NAME,NETWORK,NETZWERK,NIVEAU,NIVEAUX,NOM,NUMBER,NUMMER,NUMÉRISATION,NUMÉRO,ORDINATEUR,OXE-APP01,PANNE,PHONE,PLN-GNC-PORT-04,PORTABLE,PRINTER,PROBLEM,PROBLÈME,PRODUCT,PRODUIT,PRODUKT,PRÉNOM,RAUM,RDC-ADMIN02,RECEPTION,REFERENCE,REFERENZ,REMPLACEMENT,REPAIR,REPARATUR,REPLACEMENT,REQUEST,ROOM,RÉCEPTION,RÉFÉRENCE,RÉPARATION,RÉSEAU,SALLE,SAUVEGARDE,SCAN,SCHOOL,SCHULE,SEMAINE,SERVICE,SICHERUNG,SITE,SOFTWARE,SOIR,ST-ADMIN01,STAIRS,STANDORT,STUNDEN,SUPPORT,TAG,TAGE,TECHNICIAN,TECHNICIEN,TECHNIKER,TELECOM,TELEFON,TELEKOM,TEMPS,TEST,THANKS,TICKET,TIME,TRAINING,TREPPE,TÉLÉCOMS,TÉLÉPHONE,UNTERSTÜTZUNG,USER,UTILISATEUR,VERBINDUNG,VERWALTUNG,VORFALL,VORNAME,VÉRIFICATION,WARTUNG,WEEK,WOCHE,YEAR,ZEIT,ZENTRUM,ZONE,ÉTABLISSEMENT,ÉTAGE,ÜBERPRÜFUNG,überprüfung',
                   PRIMARY KEY (`id`)
          ) ENGINE=InnoDB DEFAULT CHARSET={$default_charset} COLLATE={$default_collation} ROW_FORMAT=DYNAMIC;";
@@ -279,6 +290,7 @@ class PluginWarrantycheckConfig extends CommonDBTM
    
             // Liste des colonnes à vérifier
             $required_columns = [
+               'related_elements',
                'Filtre_Devis',
                'Filtre_Facture',
                'Filtre_BonDeLivraison',
@@ -290,6 +302,7 @@ class PluginWarrantycheckConfig extends CommonDBTM
    
             if (!empty($missing_columns)) {
                $query= "ALTER TABLE $table
+                  ADD COLUMN `related_elements` INT(10) NULL DEFAULT '1',
                   ADD COLUMN `Filtre_Devis` TEXT NULL DEFAULT 'DE',
                   ADD COLUMN `Filtre_Facture` TEXT NULL DEFAULT 'FA',
                   ADD COLUMN `Filtre_BonDeLivraison` TEXT NULL DEFAULT 'BL',

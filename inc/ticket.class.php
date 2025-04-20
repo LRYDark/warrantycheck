@@ -192,7 +192,6 @@ class PluginWarrantycheckTicket extends CommonDBTM {
    static function postShowItemNewTaskWARRANTYCHECK($params) {
       global $DB, $CFG_GLPI, $warrantycheck;
       $config = new PluginWarrantycheckConfig();
-      $group   = new PluginWarrantycheckPreference();
       $userid = Session::getLoginUserID();
       $result = $DB->query("SELECT * FROM `glpi_plugin_warrantycheck_preferences` WHERE users_id = $userid")->fetch_object();
       $VerifURL = isset($_GET['_target']) ? basename($_GET['_target']) : '';

@@ -174,87 +174,91 @@ foreach ($liste as $serial) {
 
     $found = false;
     $nodoc = 1;
+    $nodocconf = 1;
 
     foreach ($brandPrefixes as $label => $prefixes) {
         foreach ($prefixes as $prefix) {
             if (stripos($serial, trim($prefix)) === 0) {
                 $found = true;
                 if($viewdoc == 0) $nodoc = 0; // On a trouvé un numéro de série qui correspond à un préfixe
+                if($config->related_elements() == 0) $nodocconf = 0;
                 break 2; // On sort dès qu'on trouve
             }
         }
     }
 
-    if($statuswarranty === 1){
-        $infos = detectBrand($serial, $Manufacturer = null);
+    if($nodocconf == 1){
+        if($statuswarranty === 1){
+            $infos = detectBrand($serial, $Manufacturer = null);
 
-        insertSurveyData([
-            'tickets_id'    => $Ticket_id,
-            'serial_number' => $infos['serial'] ?? $serial,
-            'model'         => $infos['model'] ?? null,
-            'fabricant'     => $infos['fabricant'] ?? null,
-            'date_start'    => $infos['warranty_start'] ?? null,
-            'date_end'      => $infos['warranty_end'] ?? null,
-        ]);
+            insertSurveyData([
+                'tickets_id'    => $Ticket_id,
+                'serial_number' => $infos['serial'] ?? $serial,
+                'model'         => $infos['model'] ?? null,
+                'fabricant'     => $infos['fabricant'] ?? null,
+                'date_start'    => $infos['warranty_start'] ?? null,
+                'date_end'      => $infos['warranty_end'] ?? null,
+            ]);
 
-        if (isset($infos) && is_array($infos) && array_key_exists('fabricant', $infos) && $infos['fabricant'] != null && $infos['info'] === 'serialnumber') {
-            if (count($resultats) < $max) {
-                if ($nodoc == 1) {
-                    $resultats[] = [
-                        'serial' => $serial,
-                        'fabricant' => $infos['fabricant'] ?? '',
-                        'warranty_status' => $infos['warranty_status'] ?? '',
-                        'info' => 'Numéro de serie : '
-                    ];
-                }
-            }
-        }else{
-            if (count($resultats) < $max) {
-                if (is_array($infos) && isset($infos['fabricant']) && in_array($infos['fabricant'], ['Bon de commande', 'Bon de livraison', 'Facture', 'Devis'])){
+            if (isset($infos) && is_array($infos) && array_key_exists('fabricant', $infos) && $infos['fabricant'] != null && $infos['info'] === 'serialnumber') {
+                if (count($resultats) < $max) {
                     if ($nodoc == 1) {
                         $resultats[] = [
                             'serial' => $serial,
-                            'info' => $infos['info'] ?? ''
-                        ];
-                    }
-                } else {
-                    if ($nodoc == 1) {
-                        $resultats[] = [
-                            'serial' => $serial,
-                            'warranty_status' => 'Inconnu ou API erreur',
+                            'fabricant' => $infos['fabricant'] ?? '',
+                            'warranty_status' => $infos['warranty_status'] ?? '',
                             'info' => 'Numéro de serie : '
                         ];
                     }
                 }
-                
-            }
-        }
-    }else{
-        if (count($resultats) < $max) {
-            if ($nodoc == 1) {
-                $resultat = ['serial' => $serial];
-            }
-    
-            if (!$found) {
-                if ($nodoc == 1) {
-                    $resultat['info'] = 'Numéro de série : ';
-                }
-                insertSurveyData([
-                    'tickets_id'    => $Ticket_id,
-                    'serial_number' => $serial,
-                ]);
             }else{
-                if ($nodoc == 1) {
-                    $resultat['info'] = $label;
+                if (count($resultats) < $max) {
+                    if (is_array($infos) && isset($infos['fabricant']) && in_array($infos['fabricant'], ['Bon de commande', 'Bon de livraison', 'Facture', 'Devis'])){
+                        if ($nodoc == 1) {
+                            $resultats[] = [
+                                'serial' => $serial,
+                                'info' => $infos['info'] ?? ''
+                            ];
+                        }
+                    } else {
+                        if ($nodoc == 1) {
+                            $resultats[] = [
+                                'serial' => $serial,
+                                'warranty_status' => 'Inconnu ou API erreur',
+                                'info' => 'Numéro de serie : '
+                            ];
+                        }
+                    }
+                    
                 }
-                insertSurveyData([
-                    'tickets_id'    => $Ticket_id,
-                    'serial_number' => $serial,
-                    'fabricant'     => rtrim($label, ' :'),
-                ]);
             }
-            if ($nodoc == 1) {
-                $resultats[] = $resultat;
+        }else{
+            if (count($resultats) < $max) {
+                if ($nodoc == 1) {
+                    $resultat = ['serial' => $serial];
+                }
+        
+                if (!$found) {
+                    if ($nodoc == 1) {
+                        $resultat['info'] = 'Numéro de série : ';
+                    }
+                    insertSurveyData([
+                        'tickets_id'    => $Ticket_id,
+                        'serial_number' => $serial,
+                    ]);
+                }else{
+                    if ($nodoc == 1) {
+                        $resultat['info'] = $label;
+                    }
+                    insertSurveyData([
+                        'tickets_id'    => $Ticket_id,
+                        'serial_number' => $serial,
+                        'fabricant'     => rtrim($label, ' :'),
+                    ]);
+                }
+                if ($nodoc == 1) {
+                    $resultats[] = $resultat;
+                }
             }
         }
     }
