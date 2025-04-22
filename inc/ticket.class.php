@@ -308,7 +308,17 @@ class PluginWarrantycheckTicket extends CommonDBTM {
                         }
                      </style>
 
-                     <div class="toast-container" id="warranty-toast-container" style="display:none;">
+                     <?php
+                     $toastPositionClass = match($result->positioning) {
+                        0 => 'bottom-0 end-0',   // Bas droite
+                        1 => 'bottom-0 start-0', // Bas gauche
+                        2 => 'top-0 end-0',      // Haut droite
+                        3 => 'top-0 start-0',    // Haut gauche
+                        default => 'bottom-0 end-0'
+                     };
+                     ?>
+
+                     <div class="toast-container position-fixed <?= $toastPositionClass ?> p-3" id="warranty-toast-container" style="display:none;">
                         <div id="myToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
                            <div class="toast-header bg-dark text-white">
                               <strong class="mr-auto">Numéros de série détecté dans le ticket</strong>

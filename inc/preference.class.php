@@ -60,6 +60,7 @@ class PluginWarrantycheckPreference extends CommonDBTM {
       $input["toastdelay"]                   = 60;
       $input["maxserial"]                    = 9999;
       $input["viewdoc"]                      = 0;
+      $input["positioning"]                  = 0;
       return $self->add($input);
    }
 
@@ -89,13 +90,31 @@ class PluginWarrantycheckPreference extends CommonDBTM {
       global $DB;
 
       $self = new self();
-      $self->getFromDB($ID);
-      $config = new PluginWarrantycheckConfig();
-      
+      $self->getFromDB($ID);     
+     
       echo "<form action='" . $target . "' method='post'>";
       echo "<div align='center'>";
 
       echo "<table class='tab_cadre_fixe' style='margin: 0; margin-top: 5px;'>\n";
+
+      // Générer les options du menu déroulant
+      $positioning = [];
+      $positioning[0] = "En bas à droite";
+      $positioning[1] = "En bas à Gauche";
+      $positioning[2] = "En haut à droite";
+      $positioning[3] = "En haut à Gauche";
+      echo "<tr class='tab_bg_1'>";
+         echo "<td>" . __("Nombre maximum d'éléments à afficher", "gestion") . "</td><td>";
+            // Afficher le menu déroulant avec Dropdown::show()
+            Dropdown::showFromArray(
+               'positioning',  // Nom de l'identifiant du champ
+               $positioning,    // Tableau des options
+               [
+                  'value'      => $self->fields["positioning"],        // Valeur sélectionnée par défaut (optionnel)
+               ]
+            );
+         echo "</td>";
+      echo "</tr>";
 
       echo "<tr class='tab_bg_1 top'><td>" . __('Rechercher dans les tickets', 'rp') . "</td>";
       echo "<td>";

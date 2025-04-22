@@ -65,7 +65,8 @@ function plugin_warrantycheck_install() { // fonction installation du plugin
 
          // Liste des colonnes à vérifier
          $required_columns = [
-            'viewdoc'
+            'viewdoc',
+            'positioning'
          ];
 
          // Liste pour les colonnes manquantes
@@ -73,7 +74,8 @@ function plugin_warrantycheck_install() { // fonction installation du plugin
 
          if (!empty($missing_columns)) {
             $query= "ALTER TABLE glpi_plugin_warrantycheck_preferences
-               ADD COLUMN `viewdoc` INT(10) NOT NULL DEFAULT '0';";
+               ADD COLUMN `viewdoc` INT(10) NOT NULL DEFAULT '0',
+               ADD COLUMN `positioning` INT(10) NOT NULL DEFAULT '0';";
             $DB->query($query) or die($DB->error());
          }
       }

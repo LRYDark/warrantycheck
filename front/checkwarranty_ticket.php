@@ -14,11 +14,31 @@ function findSerialNumbers(string $text): array {
 
     // ✅ Blacklist enrichie (à stocker dans un champ ou fichier si besoin)
     $blacklist_row = $config->blacklist();
+    $dynamic_blacklist = array_flip(array_filter(array_map('trim', explode(',', strtolower($blacklist_row)))));// 🧠 Conversion en blacklist dynamique
 
-    // 🧠 Conversion en blacklist dynamique
-    $dynamic_blacklist = array_filter(array_map('trim', explode(',', strtolower($blacklist_row))));
-    $dynamic_blacklist = array_flip($dynamic_blacklist); // Accès rapide
+    // ✅ Liste des préfixes à exclure
+    $prefix_blacklist_row = 'KB,X8,DE23,PRB,ERR,VER';
+    $prefix_blacklist = array_filter(array_map('trim', explode(',', strtoupper($prefix_blacklist_row))));
+
+    // ✅ Liste des préfixes à inclure
+    $valeurs = [
+        $config->Filtre_HP(),
+        $config->Filtre_Lenovo(),
+        $config->Filtre_Dell(),
+        $config->Filtre_Dynabook(),
+        $config->Filtre_Terra()
+    ];
     
+    $prefix_whitelist = [];
+    foreach ($raw_values as $chunk) {
+        foreach (explode(',', $chunk) as $prefix) {
+            $trimmed = trim($prefix);
+            if ($trimmed !== '') {
+                $prefix_whitelist[] = $trimmed;
+            }
+        }
+    }
+
     // Liste des attributs à supprimer
     $attributes = ['src', 'style', 'onclick', 'onerror', 'onload', 'onmouseover', 'onfocus', 'onblur'];
 
@@ -65,6 +85,12 @@ function findSerialNumbers(string $text): array {
         // 🛑 Règles d’exclusion
         if (strlen($word) < 6 || strlen($word) > 20) continue;
         if (isset($dynamic_blacklist[$word_lc])) continue;
+
+        // ❌ Exclusion par préfixe
+        foreach ($prefix_blacklist as $prefix) {
+            if (strpos($word, $prefix) === 0) continue 2;
+        }
+
         if (!preg_match('/[A-Z]/', $word) || !preg_match('/\d/', $word)) continue;
         if (substr_count($word, '-') >= 2) continue;
         if (preg_match('/^\d{4,6}H\d{2}$/', $word)) continue;
@@ -95,6 +121,14 @@ function findSerialNumbers(string $text): array {
         if (preg_match('/^[A-Z0-9]{6,}$/', $word)) $score += 5;
         if (strpos($word, '-') !== false) $score += 5;
         if ($word === strtoupper($word)) $score += 5;
+
+        // ✅ Bonus si préfixe référencé
+        foreach ($prefix_whitelist as $prefix) {
+            if (strpos($word, $prefix) === 0) {
+                $score += 30;
+                break;
+            }
+        }
 
         // IA : rattrapage si motif probable
         if ($score < 20 && preg_match('/^[A-Z0-9\-]{7,14}$/', $word)) {
