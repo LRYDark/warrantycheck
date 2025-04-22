@@ -29,10 +29,8 @@
 
 include('../../../inc/includes.php');
 
-//Save user preferences
    $pref = new PluginWarrantycheckPreference();
+   $config = new PluginWarrantycheckConfig();
    $pref->update($_POST);
+   $config->update($_POST);
    Html::back();
-
-
-//Html::back();

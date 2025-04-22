@@ -10,6 +10,7 @@ function plugin_warrantycheck_install() { // fonction installation du plugin
          `users_id` int unsigned NOT NULL default '0',
          `statuswarranty` int NOT NULL DEFAULT '0',
          `viewdoc` int NOT NULL DEFAULT '0',
+         `positioning` int NOT NULL DEFAULT '0',
          `maxserial` int NOT NULL DEFAULT '9999',
          `warrantypopup` int NULL,
          `repeatpopup` int NULL,

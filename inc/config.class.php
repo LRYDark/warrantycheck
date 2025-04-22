@@ -158,6 +158,48 @@ class PluginWarrantycheckConfig extends CommonDBTM
          echo "</td>";
       echo "</tr>";
 
+      echo "<tr><th colspan='2'>" . __('Blacklist Prefixes pour le fitre des numéros de série', 'gestion') . "</th></tr>";
+
+      echo "<tr class='tab_bg_1'>";
+         echo "<td>" . __("Blacklist Prefixes", "gestion") . "</td><td>";
+            Html::textarea([
+               'name'  => 'prefix_blacklist',
+               'value' => $config->prefix_blacklist(),
+               'rows'  => 2,
+            ]);
+         echo "</td>";
+      echo "</tr>";
+
+      echo "<tr class='tab_bg_1 top'><td>" . __('Blacklist Prefixes droits pour l\'utilisateurs', 'rp') . "</td>";
+      echo "<td>";
+         echo '<div style="display: inline-block; margin-right: 30px;">';
+         echo '<label for="whitelistuser_read">' . __('Lecture', 'rp') . '</label> ';
+         Html::showCheckbox([
+            'name'    => 'whitelistuser_read',
+            'id'      => 'whitelistuser_read',
+            'checked' => $config->whitelistuser_read(),
+         ]);
+         echo '</div>';
+         
+         echo '<div style="display: inline-block; margin-right: 30px;">';
+         echo '<label for="whitelistuser_update">' . __('Mise à jour', 'rp') . '</label> ';
+         Html::showCheckbox([
+            'name'    => 'whitelistuser_update',
+            'id'      => 'whitelistuser_update',
+            'checked' => $config->whitelistuser_update(),
+         ]);
+         echo '</div>';
+         
+         echo '<div style="display: inline-block; margin-right: 30px;">';
+         echo '<label for="whitelistuser_delete">' . __('Supprimer', 'rp') . '</label> ';
+         Html::showCheckbox([
+            'name'    => 'whitelistuser_delete',
+            'id'      => 'whitelistuser_delete',
+            'checked' => $config->whitelistuser_delete(),
+         ]);
+         echo '</div>';
+      echo "</td></tr>";
+
       $config->showFormButtons(['candel' => false]);
       return false;
    }
@@ -214,7 +256,22 @@ class PluginWarrantycheckConfig extends CommonDBTM
    {
       return ($this->fields['related_elements']);
    }
- 
+   function prefix_blacklist()
+   {
+      return ($this->fields['prefix_blacklist']);
+   }
+   function whitelistuser_read()
+   {
+      return ($this->fields['whitelistuser_read']);
+   }
+   function whitelistuser_delete()
+   {
+      return ($this->fields['whitelistuser_delete']);
+   }
+   function whitelistuser_update()
+   {
+      return ($this->fields['whitelistuser_update']);
+   }
  
    function ClientID_Dell(){
       return openssl_decrypt(base64_decode($this->fields['ClientID_Dell']), 'aes-256-cbc', $this->loadEncryptionKey(), 0, '1234567890123456');   
@@ -278,7 +335,11 @@ class PluginWarrantycheckConfig extends CommonDBTM
                   `Filtre_BonDeLivraison` TEXT NULL DEFAULT 'BL',
                   `Filtre_BonDeCommande` TEXT NULL DEFAULT 'BC',
                   `related_elements` INT(10) NULL DEFAULT '1',
+                  `whitelistuser_read` INT(10) NULL DEFAULT '1',
+                  `whitelistuser_delete` INT(10) NULL DEFAULT '0',
+                  `whitelistuser_update` INT(10) NULL DEFAULT '1',
                   `blacklist` MEDIUMTEXT NULL DEFAULT 'FR1009626,fr,FR,08H00,08H30,09H00,09H30,10H00,11H00,12H00,13H30,17H00,ABEND,ABTEILUNG,ACCUEIL,ADDRESS,ADMINISTRATION,ADRESSE,AFTERNOON,AGENT,ANFRAGE,ANNÉE,ANRUF,APPEL,APRÈS-MIDI,ASSISTANCE,AUSBILDUNG,AUSTAUSCH,AUTHORIZATION,AUTORISATION,Backup,Beispiel,Benutzer,Bonjour,Building,BÂTIMENT,CALL,CAS,CASE,CD54,CENTER,CENTRE,CHECK,CLIENT,COLLÈGE,COMMUNICATION,COMPUTER,CONFIGURATION,CONNECTION,CONNEXION,DANKE,DATA,DATEN,DAY,DAYS,DEMANDE,DEPARTEMENT54,DEPARTMENT,DIENST,DIRECTION,DONNÉES,DRUCKER,DSI,EBENE,EINSATZ,EMAIL,EMPFANG,ESCALIER,ETAGE,EVENING,EXAMPLE,EXEMPLE,FAILURE,FALL,FEHLER,FIRSTNAME,FLOOR,FOG-PRG-S110-00,FORMATION,GEBÄUDE,GENEHMIGUNG,GLPI,HALLO,HARDWARE,HELLO,HEURES,HILFE,HOURS,IMPRIMANTE,INCIDENT,INTERVENANT,INTERVENTION,ITIL,JAHR,JOUR,JOURS,KOMMUNIKATION,KONFIGURATION,KUNDE,LAPTOP,LASTNAME,LEVEL,LOGICIEL,LYCÉE,MACHINE,MAINTENANCE,MASCHINE,MATERIAL,MATIN,MATÉRIEL,MERCI,MITARBEITER,MODEL,MODELL,MODÈLE,MOIS,MONAT,MONTH,MORGEN,MORNING,NACHMITTAG,NACHNAME,NAME,NETWORK,NETZWERK,NIVEAU,NIVEAUX,NOM,NUMBER,NUMMER,NUMÉRISATION,NUMÉRO,ORDINATEUR,OXE-APP01,PANNE,PHONE,PLN-GNC-PORT-04,PORTABLE,PRINTER,PROBLEM,PROBLÈME,PRODUCT,PRODUIT,PRODUKT,PRÉNOM,RAUM,RDC-ADMIN02,RECEPTION,REFERENCE,REFERENZ,REMPLACEMENT,REPAIR,REPARATUR,REPLACEMENT,REQUEST,ROOM,RÉCEPTION,RÉFÉRENCE,RÉPARATION,RÉSEAU,SALLE,SAUVEGARDE,SCAN,SCHOOL,SCHULE,SEMAINE,SERVICE,SICHERUNG,SITE,SOFTWARE,SOIR,ST-ADMIN01,STAIRS,STANDORT,STUNDEN,SUPPORT,TAG,TAGE,TECHNICIAN,TECHNICIEN,TECHNIKER,TELECOM,TELEFON,TELEKOM,TEMPS,TEST,THANKS,TICKET,TIME,TRAINING,TREPPE,TÉLÉCOMS,TÉLÉPHONE,UNTERSTÜTZUNG,USER,UTILISATEUR,VERBINDUNG,VERWALTUNG,VORFALL,VORNAME,VÉRIFICATION,WARTUNG,WEEK,WOCHE,YEAR,ZEIT,ZENTRUM,ZONE,ÉTABLISSEMENT,ÉTAGE,ÜBERPRÜFUNG,überprüfung',
+                  `prefix_blacklist` MEDIUMTEXT NULL DEFAULT 'KB,X8,0X,DE23,PRB,ERR,VER',
                   PRIMARY KEY (`id`)
          ) ENGINE=InnoDB DEFAULT CHARSET={$default_charset} COLLATE={$default_collation} ROW_FORMAT=DYNAMIC;";
          $DB->query($query) or die($DB->error());
@@ -295,6 +356,10 @@ class PluginWarrantycheckConfig extends CommonDBTM
                'Filtre_Facture',
                'Filtre_BonDeLivraison',
                'Filtre_BonDeCommande',
+               'whitelistuser_read',
+               'whitelistuser_delete',
+               'whitelistuser_update',
+               'prefix_blacklist',
             ];
    
             // Liste pour les colonnes manquantes
@@ -302,6 +367,10 @@ class PluginWarrantycheckConfig extends CommonDBTM
    
             if (!empty($missing_columns)) {
                $query= "ALTER TABLE $table
+                  ADD COLUMN `whitelistuser_read` INT(10) NULL DEFAULT '1',
+                  ADD COLUMN `whitelistuser_delete` INT(10) NULL DEFAULT '0',
+                  ADD COLUMN `whitelistuser_update` INT(10) NULL DEFAULT '1',
+                  ADD COLUMN `prefix_blacklist` MEDIUMTEXT NULL DEFAULT 'KB,X8,0X,DE23,PRB,ERR,VER',
                   ADD COLUMN `related_elements` INT(10) NULL DEFAULT '1',
                   ADD COLUMN `Filtre_Devis` TEXT NULL DEFAULT 'DE',
                   ADD COLUMN `Filtre_Facture` TEXT NULL DEFAULT 'FA',

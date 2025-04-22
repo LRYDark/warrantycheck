@@ -90,7 +90,8 @@ class PluginWarrantycheckPreference extends CommonDBTM {
       global $DB;
 
       $self = new self();
-      $self->getFromDB($ID);     
+      $self->getFromDB($ID);
+      $config = new PluginWarrantycheckConfig();     
      
       echo "<form action='" . $target . "' method='post'>";
       echo "<div align='center'>";
@@ -104,7 +105,7 @@ class PluginWarrantycheckPreference extends CommonDBTM {
       $positioning[2] = "En haut à droite";
       $positioning[3] = "En haut à Gauche";
       echo "<tr class='tab_bg_1'>";
-         echo "<td>" . __("Nombre maximum d'éléments à afficher", "gestion") . "</td><td>";
+         echo "<td>" . __("Positionnement de la fenêtre", "gestion") . "</td><td>";
             // Afficher le menu déroulant avec Dropdown::show()
             Dropdown::showFromArray(
                'positioning',  // Nom de l'identifiant du champ
@@ -202,6 +203,76 @@ class PluginWarrantycheckPreference extends CommonDBTM {
 
       echo "</td></tr>";
 
+      if ($config->whitelistuser_read() == 1) {
+         echo "<tr><th colspan='2'>" . __('Blacklist Prefixes pour le filtre des numéros de série', 'gestion') . "</th></tr>";
+         echo "<tr class='tab_bg_1'>";
+         echo "<td>" . __("Blacklist Prefixes", "gestion") . "</td><td>";
+      
+         $content = htmlspecialchars($config->prefix_blacklist());
+         $update  = $config->whitelistuser_update();
+         $delete  = $config->whitelistuser_delete();
+      
+         if ($update == 0 && $delete == 0) {
+            echo '<textarea name="prefix_blacklist" rows="2" readonly style="background-color:#f5f5f5; color:#555; width:100%;">';
+            echo $content;
+            echo '</textarea>';
+         } else {
+            echo '<textarea id="prefix_blacklist" name="prefix_blacklist" rows="4" style="width:100%; text-transform: uppercase;">' . $content . '</textarea>';
+
+            echo "<script>
+               const textarea = document.getElementById('prefix_blacklist');
+               const originalText = `".addslashes($config->prefix_blacklist())."`;
+               const originalLength = originalText.length;
+            
+               function forceProtectedZone() {
+                  const current = textarea.value;
+                  const before = current.substring(0, originalLength);
+                  const after = current.substring(originalLength);
+                  const cursor = textarea.selectionStart;
+            
+                  // Cas DELETE bloqué
+                  if ($delete == 0 && before !== originalText) {
+                     // Remet le texte initial sans le supprimer
+                     textarea.value = originalText + after;
+                     const newCursor = Math.max(originalLength, cursor);
+                     textarea.setSelectionRange(newCursor, newCursor);
+                  }
+            
+                  // Cas UPDATE bloqué
+                  if ($update == 0 && after.length > 0) {
+                     textarea.value = originalText;
+                     textarea.setSelectionRange(originalLength, originalLength);
+                  }
+               }
+            
+               // Événements à surveiller
+               textarea.addEventListener('input', forceProtectedZone);
+               textarea.addEventListener('paste', function(e) {
+                  if ($update == 0 && textarea.selectionStart >= originalLength) {
+                     e.preventDefault();
+                  }
+               });
+               textarea.addEventListener('drop', function(e) {
+                  if ($update == 0 && textarea.selectionStart >= originalLength) {
+                     e.preventDefault();
+                  }
+               });
+            
+               // Toujours forcer le curseur après si update = 0
+               if ($update == 0) {
+                  textarea.addEventListener('focus', () => {
+                     setTimeout(() => {
+                        textarea.setSelectionRange(originalLength, originalLength);
+                     }, 10);
+                  });
+               }
+            </script>";            
+         }
+      
+         echo "</td>";
+         echo "</tr>";
+      }
+      
       echo "<tr class='tab_bg_1 center'><td colspan='2'>";
       echo "<br><br>";
       echo Html::submit(_sx('button', 'Post'), ['name' => 'update_user_preferences_warrantycheck', 'class' => 'btn btn-primary']);
@@ -211,6 +282,5 @@ class PluginWarrantycheckPreference extends CommonDBTM {
 
       echo "</div>";
       Html::closeForm();
-
    }
 }

@@ -17,18 +17,18 @@ function findSerialNumbers(string $text): array {
     $dynamic_blacklist = array_flip(array_filter(array_map('trim', explode(',', strtolower($blacklist_row)))));// 🧠 Conversion en blacklist dynamique
 
     // ✅ Liste des préfixes à exclure
-    $prefix_blacklist_row = 'KB,X8,DE23,PRB,ERR,VER';
+    $prefix_blacklist_row = $config->prefix_blacklist();
     $prefix_blacklist = array_filter(array_map('trim', explode(',', strtoupper($prefix_blacklist_row))));
 
     // ✅ Liste des préfixes à inclure
-    $valeurs = [
+    $raw_values = array_filter([
         $config->Filtre_HP(),
         $config->Filtre_Lenovo(),
         $config->Filtre_Dell(),
         $config->Filtre_Dynabook(),
         $config->Filtre_Terra()
-    ];
-    
+    ]);
+
     $prefix_whitelist = [];
     foreach ($raw_values as $chunk) {
         foreach (explode(',', $chunk) as $prefix) {
