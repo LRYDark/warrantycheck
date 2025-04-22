@@ -89,6 +89,90 @@ class PluginWarrantycheckPreference extends CommonDBTM {
    static function showPreferencesForm($target, $ID) {
       global $DB;
 
+      function generate_protected_field(string $name, string $value, int $update, int $delete, string $type = 'input') {
+         echo "<tr class='tab_bg_1'>";
+         echo "<td>" . __($name, 'gestion') . "</td><td>";
+      
+         // 📘 Lecture seule = aucun droit
+         if ($update === 0 && $delete === 0) {
+            if ($type === 'textarea') {
+               echo '<textarea name="' . $name . '" rows="2" readonly style="background-color:#f5f5f5; color:#555; width:100%; text-transform: uppercase;">' . htmlspecialchars($value) . '</textarea>';
+            } else {
+               echo '<input type="text" name="' . $name . '" value="' . htmlspecialchars($value) . '" readonly style="background-color:#f5f5f5; color:#555; width:100%; text-transform: uppercase;">';
+            }
+      
+            echo "</td></tr>";
+            return;
+         }
+      
+         // 🟢 Champ modifiable avec protections JS
+         if ($type === 'textarea') {
+            echo '<textarea id="'.$name.'" name="'.$name.'" rows="2" style="width:100%; text-transform: uppercase;">' . htmlspecialchars($value) . '</textarea>';
+         } else {
+            echo Html::input($name, [
+               'value' => $value,
+               'id'    => $name,
+               'size'  => 80,
+               'style' => 'text-transform: uppercase;'
+            ]);
+         }
+      
+         echo "</td></tr>";
+      
+         // ⚙️ Protection JS dynamique
+         echo "<script>
+         (function() {
+            const field = document.getElementById('".addslashes($name)."');
+            const originalText = `".addslashes($value)."`;
+            const originalLength = originalText.length;
+            const update = $update;
+            const del = $delete;
+      
+            function forceProtectedZone() {
+               const current = field.value.toUpperCase();
+               const before = current.substring(0, originalLength);
+               const after = current.substring(originalLength);
+               const cursor = field.selectionStart;
+      
+               if (del === 0 && before !== originalText) {
+                  field.value = originalText + after;
+                  field.setSelectionRange(Math.max(originalLength, cursor), Math.max(originalLength, cursor));
+                  return;
+               }
+      
+               if (update === 0 && after.length > 0) {
+                  field.value = originalText;
+                  field.setSelectionRange(originalLength, originalLength);
+                  return;
+               }
+      
+               field.value = before + after;
+            }
+      
+            field.addEventListener('input', forceProtectedZone);
+      
+            field.addEventListener('paste', function(e) {
+               const pos = field.selectionStart;
+               if ((update === 0 && pos >= originalLength) || (del === 0 && pos < originalLength)) {
+                  e.preventDefault();
+               }
+            });
+      
+            field.addEventListener('drop', function(e) {
+               e.preventDefault();
+            });
+      
+            if (update === 0) {
+               field.addEventListener('focus', function() {
+                  setTimeout(() => {
+                     field.setSelectionRange(originalLength, originalLength);
+                  }, 0);
+               });
+            }
+         })();
+         </script>";
+      }
+      
       $self = new self();
       $self->getFromDB($ID);
       $config = new PluginWarrantycheckConfig();     
@@ -205,74 +289,16 @@ class PluginWarrantycheckPreference extends CommonDBTM {
 
       if ($config->whitelistuser_read() == 1) {
          echo "<tr><th colspan='2'>" . __('Blacklist Prefixes pour le filtre des numéros de série', 'gestion') . "</th></tr>";
-         echo "<tr class='tab_bg_1'>";
-         echo "<td>" . __("Blacklist Prefixes", "gestion") . "</td><td>";
-      
-         $content = htmlspecialchars($config->prefix_blacklist());
-         $update  = $config->whitelistuser_update();
-         $delete  = $config->whitelistuser_delete();
-      
-         if ($update == 0 && $delete == 0) {
-            echo '<textarea name="prefix_blacklist" rows="2" readonly style="background-color:#f5f5f5; color:#555; width:100%;">';
-            echo $content;
-            echo '</textarea>';
-         } else {
-            echo '<textarea id="prefix_blacklist" name="prefix_blacklist" rows="4" style="width:100%; text-transform: uppercase;">' . $content . '</textarea>';
+         generate_protected_field('Blacklist Prefixes', $config->prefix_blacklist(), $config->whitelistuser_update(), $config->whitelistuser_delete(), 'textarea');
 
-            echo "<script>
-               const textarea = document.getElementById('prefix_blacklist');
-               const originalText = `".addslashes($config->prefix_blacklist())."`;
-               const originalLength = originalText.length;
-            
-               function forceProtectedZone() {
-                  const current = textarea.value;
-                  const before = current.substring(0, originalLength);
-                  const after = current.substring(originalLength);
-                  const cursor = textarea.selectionStart;
-            
-                  // Cas DELETE bloqué
-                  if ($delete == 0 && before !== originalText) {
-                     // Remet le texte initial sans le supprimer
-                     textarea.value = originalText + after;
-                     const newCursor = Math.max(originalLength, cursor);
-                     textarea.setSelectionRange(newCursor, newCursor);
-                  }
-            
-                  // Cas UPDATE bloqué
-                  if ($update == 0 && after.length > 0) {
-                     textarea.value = originalText;
-                     textarea.setSelectionRange(originalLength, originalLength);
-                  }
-               }
-            
-               // Événements à surveiller
-               textarea.addEventListener('input', forceProtectedZone);
-               textarea.addEventListener('paste', function(e) {
-                  if ($update == 0 && textarea.selectionStart >= originalLength) {
-                     e.preventDefault();
-                  }
-               });
-               textarea.addEventListener('drop', function(e) {
-                  if ($update == 0 && textarea.selectionStart >= originalLength) {
-                     e.preventDefault();
-                  }
-               });
-            
-               // Toujours forcer le curseur après si update = 0
-               if ($update == 0) {
-                  textarea.addEventListener('focus', () => {
-                     setTimeout(() => {
-                        textarea.setSelectionRange(originalLength, originalLength);
-                     }, 10);
-                  });
-               }
-            </script>";            
-         }
-      
-         echo "</td>";
-         echo "</tr>";
+         echo "<tr><th colspan='2'>" . __('Filtres des numéros de série par Préfixes', 'gestion') . "</th></tr>";
+         generate_protected_field('Filtre HP',        $config->Filtre_HP(),         $config->whitelistuser_update(), $config->whitelistuser_delete());
+         generate_protected_field('Filtre Lenovo',    $config->Filtre_Lenovo(),     $config->whitelistuser_update(), $config->whitelistuser_delete());
+         generate_protected_field('Filtre Dell',      $config->Filtre_Dell(),       $config->whitelistuser_update(), $config->whitelistuser_delete());
+         generate_protected_field('Filtre Dynabook',  $config->Filtre_Dynabook(),   $config->whitelistuser_update(), $config->whitelistuser_delete());
+         generate_protected_field('Filtre Terra',     $config->Filtre_Terra(),      $config->whitelistuser_update(), $config->whitelistuser_delete());
       }
-      
+
       echo "<tr class='tab_bg_1 center'><td colspan='2'>";
       echo "<br><br>";
       echo Html::submit(_sx('button', 'Post'), ['name' => 'update_user_preferences_warrantycheck', 'class' => 'btn btn-primary']);

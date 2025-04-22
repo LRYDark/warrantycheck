@@ -158,8 +158,6 @@ class PluginWarrantycheckConfig extends CommonDBTM
          echo "</td>";
       echo "</tr>";
 
-      echo "<tr><th colspan='2'>" . __('Blacklist Prefixes pour le fitre des numéros de série', 'gestion') . "</th></tr>";
-
       echo "<tr class='tab_bg_1'>";
          echo "<td>" . __("Blacklist Prefixes", "gestion") . "</td><td>";
             Html::textarea([
@@ -170,7 +168,8 @@ class PluginWarrantycheckConfig extends CommonDBTM
          echo "</td>";
       echo "</tr>";
 
-      echo "<tr class='tab_bg_1 top'><td>" . __('Blacklist Prefixes droits pour l\'utilisateurs', 'rp') . "</td>";
+      echo "<tr><th colspan='2'>" . __('Droits des utilisateurs sur les filtres de blacklist et les filtres de numéros de service par préfixe', 'gestion') . "</th></tr>";
+      echo "<tr class='tab_bg_1 top'><td>" . __('Droits des utilisateurs', 'rp') . "</td>";
       echo "<td>";
          echo '<div style="display: inline-block; margin-right: 30px;">';
          echo '<label for="whitelistuser_read">' . __('Lecture', 'rp') . '</label> ';
