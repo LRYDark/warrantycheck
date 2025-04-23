@@ -8,6 +8,51 @@ if (!defined('GLPI_ROOT')) {
 
 ob_clean(); // Vide tout ce qui a pu être envoyé avant
 
+function isDateDisguisedAsSerial(string $word): bool {
+    $word = strtoupper(trim($word));
+
+    // Trop court ou trop long => peu probable que ce soit une date
+    if (strlen($word) < 6 || strlen($word) > 12) return false;
+
+    // Liste complète de mois avec toutes variantes FR/EN
+    $month_patterns = [
+        'JAN', 'JANV', 'JANVI', 'JANVIER',
+        'FEB', 'FEV', 'FEVR', 'FEVRIER', 'FEBR', 'FEBRUARY',
+        'MAR', 'MARS', 'MARCH',
+        'AVR', 'AVRI', 'AVRIL',
+        'APR', 'APRI', 'APRIL',
+        'MAI', 'MAY',
+        'JUN', 'JUIN', 'JUNE',
+        'JUL', 'JUIL', 'JUILLET', 'JULY',
+        'AOU', 'AOUT', 'AUG', 'AUGU', 'AUGUST',
+        'SEP', 'SEPT', 'SEPTEM', 'SEPTEMBRE', 'SEPTEMBER',
+        'OCT', 'OCTO', 'OCTOBRE', 'OCTOBER',
+        'NOV', 'NOVE', 'NOVEM', 'NOVEMBRE', 'NOVEMBER',
+        'DEC', 'DECE', 'DECEM', 'DECEMB', 'DECEMBRE', 'DECEMBER'
+    ];
+
+    foreach ($month_patterns as $prefix) {
+        // Vérifie : préfixe + exactement 4 chiffres (année), ou 2 chiffres (abrégé)
+        if (preg_match('/^' . $prefix . '\d{2,4}$/', $word)) {
+            return true;
+        }
+
+        // Bonus : cas tordus genre "SEPTEMB2025" (trop long, mais on détecte)
+        if (strpos($word, $prefix) === 0 && preg_match('/[A-Z]*\d{4}$/', $word)) {
+            return true;
+        }
+    }
+
+    // Cas spéciaux : date inversée, genre 2023AUG ou 2023SEPT
+    foreach ($month_patterns as $suffix) {
+        if (preg_match('/^\d{4}' . $suffix . '$/', $word)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 function findSerialNumbers(string $text): array {
     global $DB, $CFG_GLPI;
     $config = new PluginWarrantycheckConfig();
@@ -40,7 +85,7 @@ function findSerialNumbers(string $text): array {
     }
 
     // Liste des attributs à supprimer
-    $attributes = ['src', 'style', 'onclick', 'onerror', 'onload', 'onmouseover', 'onfocus', 'onblur'];
+    $attributes = ['src', 'style', 'onclick', 'onerror', 'onload', 'onmouseover', 'onfocus', 'onblur', 'iframe', 'object', 'embed', 'link', 'meta', 'noscript', 'img', 'svg', 'script'];
 
     foreach ($attributes as $attr) {
         $text = preg_replace(
@@ -50,24 +95,18 @@ function findSerialNumbers(string $text): array {
         );
     }
 
-    $text = preg_replace('#<(img|svg|meta|link|iframe|noscript)[^>]*?>#is', '', $text); // Suppression des images et autres balises
-    $text = preg_replace('#<(script|style|iframe|object|embed)[^>]*>.*?</\1>#is', '', $text); // Supprime les balises <script>, <style>, <iframe>, <object>, <embed> 
-    $text = preg_replace('#<img\b[^>]*>#i', '', $text); // Supprime les balises <img> (autofermées ou non)
-
-    // 🧼 Nettoyage HTML
-    $text = preg_replace('/<br\s*\/?>/i', ' ', $text);
-    $text = preg_replace('/<\/?(p|div|h\d|strong|span|em|b|i|u)>/i', ' ', $text);
-    $text = strip_tags($text);
-
-    $text = preg_replace('/\s+/', ' ', $text); // Suppression des espaces multiples
-    $text = preg_replace('/\s*([.,;:!?()])\s*/', '$1 ', $text); // Normalisation des espaces autour de la ponctuation
-    $text = preg_replace('/\s+/', ' ', $text); // Suppression des espaces multiples
-    $text = preg_replace('/\s*([.,;:!?()])\s*/', '$1 ', $text); // Normalisation des espaces autour de la ponctuation
+    $text = preg_replace([
+        '#<(script|style|iframe|object|embed)[^>]*>.*?</\1>#is',
+        '#<(img|svg|meta|link|iframe|noscript)[^>]*?>#is',
+        '#<img\b[^>]*>#i',
+        '/<br\s*\/?>/i',
+        '/<\/?(p|div|h\d|strong|span|em|b|i|u)>/i',
+        '/\s+/', '/\s*([.,;:!?()])\s*/', '/\s+/', '/\s*([.,;:!?()])\s*/'
+    ], [' ', ' ', '', ' ', ' ', ' ', '$1 ', ' ', '$1 '], strip_tags($text));    
 
     // 🧼 Nettoyage des entités HTML
     $text = html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');// Suppression des entités HTML
     $text = trim($text);// Suppression des espaces en début et fin de chaîne
-    $text = html_entity_decode($text);// Suppression des entités HTML
     $text = mb_convert_encoding($text, 'UTF-8', 'UTF-8');// Suppression des entités HTML
 
     // 🔠 Séparation des mots
@@ -133,6 +172,16 @@ function findSerialNumbers(string $text): array {
         // IA : rattrapage si motif probable
         if ($score < 20 && preg_match('/^[A-Z0-9\-]{7,14}$/', $word)) {
             $score = 20;
+        }
+
+        // Vocabulaire de mois pour détection date déguisée (FR/EN)
+        if (isDateDisguisedAsSerial($word)) {
+            $score = -999;
+        }
+
+        // Pénalité si ressemble à un nom de machine ou patch
+        if (preg_match('/^(EXCH|SRVDC|SRV|DC|SVR)[A-Z0-9]*$/i', $word)) {
+            $score -= 100;
         }
 
         if ($score >= 20) {
