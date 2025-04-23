@@ -89,7 +89,7 @@ class PluginWarrantycheckPreference extends CommonDBTM {
    static function showPreferencesForm($target, $ID) {
       global $DB;
 
-      function generate_protected_field(string $name, string $value, int $update, int $delete, string $type = 'input') {
+      function generate_protected_field($name, $value, $update, $delete, $type = 'input') {
          echo "<tr class='tab_bg_1'>";
          echo "<td>" . __($name, 'gestion') . "</td><td>";
       
@@ -122,8 +122,8 @@ class PluginWarrantycheckPreference extends CommonDBTM {
          // ⚙️ Protection JS dynamique
          echo "<script>
          (function() {
-            const field = document.getElementById('".addslashes($name)."');
-            const originalText = `".addslashes($value)."`;
+            const field = document.getElementById('".addslashes($name ?? '')."');
+            const originalText = `".addslashes($value ?? '')."`;
             const originalLength = originalText.length;
             const update = $update;
             const del = $delete;
