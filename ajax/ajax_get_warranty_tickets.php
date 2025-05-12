@@ -9,10 +9,10 @@ $result = $DB->query($query);
 if ($DB->numrows($result) > 0) {
     while ($data = $result->fetch_assoc()) {
         echo "<tr>";
+        echo "<td><input type='checkbox' class='warrantyCheckbox' value='".$data['id']."'></td>";
         echo "<td>".$data['id']."</td>";
         echo "<td>".$data['tickets_id']."</td>";
         echo "<td>".$data['serial_number']."</td>";
-        echo "<td><button type='button' class='btn btn-danger btn-sm' onclick='deleteWarrantyLine(".$data['id'].");'>Supprimer</button></td>";
         echo "</tr>";
     }
 } else {

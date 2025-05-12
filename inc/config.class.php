@@ -227,13 +227,37 @@ class PluginWarrantycheckConfig extends CommonDBTM
             });
          }
 
-         function deleteWarrantyLine(id) {
-            if (confirm("Confirmer la suppression ?")) {
-               $.post('../plugins/warrantycheck/ajax/ajax_delete_warranty_ticket.php', { id: id }, function() {
+         $(document).on('change', '.warrantyCheckbox, #checkAll', function() {
+            if (this.id === 'checkAll') {
+               $('.warrantyCheckbox').prop('checked', this.checked);
+            }
+            updateSelectedCount();
+         });
+
+         function updateSelectedCount() {
+            let count = $('.warrantyCheckbox:checked').length;
+            $('#selectedCount').text(count);
+         }
+
+         $(document).on('click', '#deleteSelectedBtn', function() {
+            let selected = [];
+            $('.warrantyCheckbox:checked').each(function() {
+               selected.push($(this).val());
+            });
+
+            if (selected.length === 0) {
+               alert("Aucun élément sélectionné.");
+               return;
+            }
+
+            if (confirm("Confirmer la suppression des "+selected.length+" éléments sélectionnés ?")) {
+               $.post('../plugins/warrantycheck/ajax/ajax_delete_warranty_ticket.php', { ids: selected }, function() {
                      loadWarrantyTickets();
+                     $('#selectedCount').text(0);  // ← remise à zéro du compteur
+                     $('#checkAll').prop('checked', false);
                });
             }
-         }
+         });
 
          $(document).on('input', '#searchWarrantyInput', function() {
             let input = $(this).val().toLowerCase().trim();
@@ -290,35 +314,38 @@ class PluginWarrantycheckConfig extends CommonDBTM
 
          // Modal HTML
          echo <<<HTML
-         <div class="modal fade" id="customModal" tabindex="-1" aria-labelledby="AddGestionModalLabel" aria-hidden="true">
-            <div class="modal-dialog modal-lg">
-               <div class="modal-content">
-                  <div class="modal-header">
-                     <h5 class="modal-title" id="AddGestionModalLabel">Gestion des numéros de série</h5>
-                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                  </div>
-                  <div class="modal-body">
-                     <table class="table table-striped">
-                        <thead>
-                           <input type="text" id="searchWarrantyInput" class="form-control mb-3" placeholder="Rechercher...">
-                           <tr>
-                              <th>ID</th>
-                              <th>Ticket ID</th>
-                              <th>Serial Number</th>
-                              <th>Action</th>
-                           </tr>
-                        </thead>
-                        <tbody id="warrantyTicketsBody">
-                           <!-- Données AJAX -->
-                        </tbody>
-                     </table>
-                  </div>
-                  <div class="modal-footer">
-                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+            <div class="modal fade" id="customModal" tabindex="-1" aria-labelledby="AddGestionModalLabel" aria-hidden="true">
+               <div class="modal-dialog modal-xl"> <!-- agrandissement modal -->
+                  <div class="modal-content">
+                     <div class="modal-header">
+                        <h5 class="modal-title" id="AddGestionModalLabel">Gestion des numéros de série</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                     </div>
+                     <div class="modal-body" style="overflow-x: auto;"> <!-- scroll horizontal si besoin -->
+                        <div class="d-flex mb-2 gap-2">
+                           <input type="text" id="searchWarrantyInput" class="form-control" placeholder="Rechercher...">
+                           <button type="button" id="deleteSelectedBtn" class="btn btn-danger">Supprimer la sélection (<span id="selectedCount">0</span>)</button>
+                        </div>
+                        <table class="table table-striped">
+                           <thead>
+                              <tr>
+                                 <th><input type="checkbox" id="checkAll"></th>
+                                 <th>ID</th>
+                                 <th>Ticket ID</th>
+                                 <th>Serial Number</th>
+                              </tr>
+                           </thead>
+                           <tbody id="warrantyTicketsBody">
+                              <!-- Données AJAX -->
+                           </tbody>
+                        </table>
+                     </div>
+                     <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+                     </div>
                   </div>
                </div>
             </div>
-         </div>
          HTML;
 
          echo "</td>";
