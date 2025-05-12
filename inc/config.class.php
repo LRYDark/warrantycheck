@@ -236,12 +236,54 @@ class PluginWarrantycheckConfig extends CommonDBTM
          }
 
          $(document).on('input', '#searchWarrantyInput', function() {
-            let value = $(this).val().toLowerCase();
+            let input = $(this).val().toLowerCase().trim();
+            let prefix = '';
+            let value = input;
+            let exact = false;
+
+            if (input.indexOf('id=') === 0) {
+               prefix = 'id';
+               value = input.replace('id=', '').trim();
+               exact = true;
+            } else if (input.indexOf('ticket=') === 0) {
+               prefix = 'ticket';
+               value = input.replace('ticket=', '').trim();
+               exact = true;
+            } else if (input.indexOf('sn=') === 0) {
+               prefix = 'sn';
+               value = input.replace('sn=', '').trim();
+               exact = true;
+            } else if (input.indexOf('id:') === 0) {
+               prefix = 'id';
+               value = input.replace('id:', '').trim();
+            } else if (input.indexOf('ticket:') === 0) {
+               prefix = 'ticket';
+               value = input.replace('ticket:', '').trim();
+            } else if (input.indexOf('sn:') === 0) {
+               prefix = 'sn';
+               value = input.replace('sn:', '').trim();
+            }
+
             $("#warrantyTicketsBody tr").filter(function() {
-               $(this).toggle($(this).text().toLowerCase().indexOf(value) > -1)
+               let show = false;
+
+               if (prefix === 'id') {
+                     let id = $(this).find('td:eq(0)').text().toLowerCase();
+                     show = exact ? (id === value) : (id.indexOf(value) > -1);
+               } else if (prefix === 'ticket') {
+                     let ticket = $(this).find('td:eq(1)').text().toLowerCase();
+                     show = exact ? (ticket === value) : (ticket.indexOf(value) > -1);
+               } else if (prefix === 'sn') {
+                     let serial = $(this).find('td:eq(2)').text().toLowerCase();
+                     show = exact ? (serial === value) : (serial.indexOf(value) > -1);
+               } else {
+                     // recherche globale si aucun préfixe
+                     show = $(this).text().toLowerCase().indexOf(value) > -1;
+               }
+
+               $(this).toggle(show);
             });
          });
-
          </script>
 
          <?php
