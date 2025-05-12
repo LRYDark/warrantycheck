@@ -1,5 +1,5 @@
 <?php
-define('PLUGIN_WARRANTYCHECK_VERSION', '1.0.4'); // version du plugin
+define('PLUGIN_WARRANTYCHECK_VERSION', '1.0.5'); // version du plugin
 $_SESSION['PLUGIN_WARRANTYCHECK_VERSION'] = PLUGIN_WARRANTYCHECK_VERSION;
 
 // Minimal GLPI version,
@@ -40,8 +40,8 @@ function plugin_init_warrantycheck() { // fonction glpi d'initialisation du plug
 
       if (Session::haveRight('plugin_warrantycheck', READ)) {
          $PLUGIN_HOOKS['pre_show_item']['warrantycheck'] = ['PluginWarrantycheckTicket', 'postShowItemNewTaskWARRANTYCHECK']; // initialisation de la class
+         Plugin::registerClass('PluginWarrantycheckPreference',['addtabon' => 'Preference']);
       }
-      Plugin::registerClass('PluginWarrantycheckPreference',['addtabon' => 'Preference']);
    }
 }
 

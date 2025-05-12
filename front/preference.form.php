@@ -32,5 +32,21 @@ include('../../../inc/includes.php');
    $pref = new PluginWarrantycheckPreference();
    $config = new PluginWarrantycheckConfig();
    $pref->update($_POST);
+
+   $_POST['id'] = 1;
    $config->update($_POST);
+
+   if(!$config->update($_POST)){
+      Session::addMessageAfterRedirect(
+         __('Erreur lors de la modification', 'warrantycheck'),
+         true,
+         ERROR
+      );
+   }else{
+      Session::addMessageAfterRedirect(
+         __('Modification(s) effectuée(s)', 'warrantycheck'),
+         true,
+         INFO
+      );
+   }
    Html::back();

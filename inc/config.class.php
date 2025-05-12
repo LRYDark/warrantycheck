@@ -199,6 +199,89 @@ class PluginWarrantycheckConfig extends CommonDBTM
          echo '</div>';
       echo "</td></tr>";
 
+      echo "<tr class='tab_bg_1'>";
+         echo "<td>" . __("Gestion des numéros de série", "gestion") . "</td><td>";
+
+         ?>
+         <button id="openModalButton" type="button" class="btn btn-primary">Voir les numéros de série</button>
+
+         <script type="text/javascript">
+
+            $('#openModalButton').on('click', function() {
+               $('#customModal').modal('show');
+               loadWarrantyTickets();
+            });
+
+         function loadWarrantyTickets() {
+            console.log("Chargement des tickets en cours...");
+            $.ajax({
+               url: '../plugins/warrantycheck/ajax/ajax_get_warranty_tickets.php',
+               type: 'GET',
+               success: function(data) {
+                     console.log("Données reçues : ", data);
+                     $('#warrantyTicketsBody').html(data);
+               },
+               error: function(xhr) {
+                     console.error("Erreur Ajax : ", xhr.status, xhr.statusText);
+               }
+            });
+         }
+
+         function deleteWarrantyLine(id) {
+            if (confirm("Confirmer la suppression ?")) {
+               $.post('../plugins/warrantycheck/ajax/ajax_delete_warranty_ticket.php', { id: id }, function() {
+                     loadWarrantyTickets();
+               });
+            }
+         }
+
+         $(document).on('input', '#searchWarrantyInput', function() {
+            let value = $(this).val().toLowerCase();
+            $("#warrantyTicketsBody tr").filter(function() {
+               $(this).toggle($(this).text().toLowerCase().indexOf(value) > -1)
+            });
+         });
+
+         </script>
+
+         <?php
+
+         // Modal HTML
+         echo <<<HTML
+         <div class="modal fade" id="customModal" tabindex="-1" aria-labelledby="AddGestionModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-lg">
+               <div class="modal-content">
+                  <div class="modal-header">
+                     <h5 class="modal-title" id="AddGestionModalLabel">Gestion des numéros de série</h5>
+                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                  </div>
+                  <div class="modal-body">
+                     <table class="table table-striped">
+                        <thead>
+                           <input type="text" id="searchWarrantyInput" class="form-control mb-3" placeholder="Rechercher...">
+                           <tr>
+                              <th>ID</th>
+                              <th>Ticket ID</th>
+                              <th>Serial Number</th>
+                              <th>Action</th>
+                           </tr>
+                        </thead>
+                        <tbody id="warrantyTicketsBody">
+                           <!-- Données AJAX -->
+                        </tbody>
+                     </table>
+                  </div>
+                  <div class="modal-footer">
+                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+                  </div>
+               </div>
+            </div>
+         </div>
+         HTML;
+
+         echo "</td>";
+      echo "</tr>";
+
       $config->showFormButtons(['candel' => false]);
       return false;
    }

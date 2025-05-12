@@ -88,7 +88,7 @@ class PluginWarrantycheckPreference extends CommonDBTM {
 
    static function showPreferencesForm($target, $ID) {
       global $DB;
-
+     
       function generate_protected_field($name, $value, $update, $delete, $type = 'input') {
          echo "<tr class='tab_bg_1'>";
          echo "<td>" . __($name, 'gestion') . "</td><td>";
@@ -289,14 +289,14 @@ class PluginWarrantycheckPreference extends CommonDBTM {
 
       if ($config->whitelistuser_read() == 1) {
          echo "<tr><th colspan='2'>" . __('Blacklist Prefixes pour le filtre des numéros de série', 'gestion') . "</th></tr>";
-         generate_protected_field('Blacklist Prefixes', $config->prefix_blacklist(), $config->whitelistuser_update(), $config->whitelistuser_delete(), 'textarea');
+         generate_protected_field('prefix_blacklist', $config->prefix_blacklist(), $config->whitelistuser_update(), $config->whitelistuser_delete(), 'textarea');
 
          echo "<tr><th colspan='2'>" . __('Filtres des numéros de série par Préfixes', 'gestion') . "</th></tr>";
-         generate_protected_field('Filtre HP',        $config->Filtre_HP(),         $config->whitelistuser_update(), $config->whitelistuser_delete());
-         generate_protected_field('Filtre Lenovo',    $config->Filtre_Lenovo(),     $config->whitelistuser_update(), $config->whitelistuser_delete());
-         generate_protected_field('Filtre Dell',      $config->Filtre_Dell(),       $config->whitelistuser_update(), $config->whitelistuser_delete());
-         generate_protected_field('Filtre Dynabook',  $config->Filtre_Dynabook(),   $config->whitelistuser_update(), $config->whitelistuser_delete());
-         generate_protected_field('Filtre Terra',     $config->Filtre_Terra(),      $config->whitelistuser_update(), $config->whitelistuser_delete());
+         generate_protected_field('Filtre_HP',        $config->Filtre_HP(),         $config->whitelistuser_update(), $config->whitelistuser_delete());
+         generate_protected_field('Filtre_Lenovo',    $config->Filtre_Lenovo(),     $config->whitelistuser_update(), $config->whitelistuser_delete());
+         generate_protected_field('Filtre_Dell',      $config->Filtre_Dell(),       $config->whitelistuser_update(), $config->whitelistuser_delete());
+         generate_protected_field('Filtre_Dynabook',  $config->Filtre_Dynabook(),   $config->whitelistuser_update(), $config->whitelistuser_delete());
+         generate_protected_field('Filtre_Terra',     $config->Filtre_Terra(),      $config->whitelistuser_update(), $config->whitelistuser_delete());
       }
 
       echo "<tr class='tab_bg_1 center'><td colspan='2'>";
