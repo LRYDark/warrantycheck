@@ -292,13 +292,13 @@ class PluginWarrantycheckConfig extends CommonDBTM
                let show = false;
 
                if (prefix === 'id') {
-                     let id = $(this).find('td:eq(0)').text().toLowerCase();
+                     let id = $(this).find('td:eq(1)').text().toLowerCase();
                      show = exact ? (id === value) : (id.indexOf(value) > -1);
                } else if (prefix === 'ticket') {
-                     let ticket = $(this).find('td:eq(1)').text().toLowerCase();
+                     let ticket = $(this).find('td:eq(2)').text().toLowerCase();
                      show = exact ? (ticket === value) : (ticket.indexOf(value) > -1);
                } else if (prefix === 'sn') {
-                     let serial = $(this).find('td:eq(2)').text().toLowerCase();
+                     let serial = $(this).find('td:eq(3)').text().toLowerCase();
                      show = exact ? (serial === value) : (serial.indexOf(value) > -1);
                } else {
                      // recherche globale si aucun préfixe
