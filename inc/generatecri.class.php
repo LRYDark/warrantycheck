@@ -57,7 +57,6 @@ class PluginWarrantycheckGenerateCRI extends CommonGLPI {
          $UserID = Session::getLoginUserID();
          $config = new PluginWarrantycheckConfig();
          $SN = null;
-         $noresultsn = false;
 
          if (isset($_GET['cache_id'], $_SESSION['generatecri_cache'][$_GET['cache_id']])) {
             $result = $_SESSION['generatecri_cache'][$_GET['cache_id']];
@@ -218,132 +217,122 @@ class PluginWarrantycheckGenerateCRI extends CommonGLPI {
                      'date_start'    => $result['warranty_start'],
                      'date_end'      => $result['warranty_end'],
                   ]);
-
-                  $noresultsn = true;
                } else {
                   echo '<div class="alert alert-danger mt-4">Erreur : Aucune donnée retournée ou numéro invalide.</div>';
-                  $noresultsn = false;
                }
             } else {
                if (isset($_GET['cache_id'])) {
                   echo '<div class="alert alert-danger mt-4">Erreur : Aucune donnée retournée (Erreur serveur '.$_GET['fabricant'].'), Fabricant non détécté ou numéro invalide.</div>';
-                  $noresultsn = false;
                }
             }
-         }else{
-            $noresultsn = true;
          }
          
-         if ($noresultsn == true){
-            $tickets_id_list = [];
-            
-            $query = $DB->query("SELECT tickets_id FROM glpi_plugin_warrantycheck_tickets WHERE serial_number = '$SN'");
-            if ($row = $query->fetch_object()) {
-               $tickets_id_list = array_filter(array_map('intval', explode(',', $row->tickets_id)));
-            }
-            
-            if (count($tickets_id_list) > 0) {
-            
-               $in_clause = implode(',', $tickets_id_list);
-            
-               $tickets_query = "
-                  SELECT glpi_tickets.id, glpi_tickets.name, glpi_tickets.status, glpi_tickets.date_creation, glpi_tickets.content,
-                           glpi_entities.name AS entity_name
-                  FROM glpi_tickets
-                  LEFT JOIN glpi_entities ON glpi_entities.id = glpi_tickets.entities_id
-                  WHERE glpi_tickets.id IN ($in_clause)
-                  ORDER BY glpi_tickets.date_creation DESC;
-               ";
-               $result = $DB->query($tickets_query);
-            
-               echo '<br><div class="card mb-4 shadow-sm w-100">
-                        <div class="card-header bg-dark text-white fw-bold">Tickets liés à l\'élément : ' . htmlspecialchars($SN) . '</div>
-                        <div class="card-body">
-                        <div class="table-responsive">
-                        <table class="table table-bordered table-hover">
-                           <thead class="thead-light">
-                              <tr>
-                                    <th>ID du ticket</th>
-                                    <th>Entité</th>
-                                    <th>Titre du ticket</th>
-                                    <th>Statut</th>
-                                    <th>Date de création</th>
-                              </tr>
-                           </thead>
-                           <tbody>';
-            
-               if ($result && $DB->numrows($result)) {
-                  while ($row = $DB->fetchassoc($result)) {
-                     $ticket_id   = (int)$row['id'];
-                     $entity_name = htmlspecialchars($row['entity_name']);
-                     $name        = htmlspecialchars($row['name']);
-                     $status      = Ticket::getStatus($row['status']);
-                     $date        = Html::convDateTime($row['date_creation']);
-                 
-                     // Traitement du contenu enrichi pour le tooltip GLPI
-                     $ticket_content = html_entity_decode($row['content']);
-                     $tooltip_html = Glpi\RichText\RichText::getEnhancedHtml($ticket_content);
-                 
-                     // Génération du lien avec le tooltip GLPI
-                     $link = "<a id='ticket{$ticket_id}' href='" . Ticket::getFormURLWithID($ticket_id) . "'>$name</a>";
-                     $link = sprintf(
-                         __('%1$s %2$s'),
-                         $link,
-                         Html::showToolTip($tooltip_html, [
-                             'applyto' => 'ticket' . $ticket_id,
-                             'display' => true
-                         ])
-                     );
-                 
-                     echo "<tr>
-                             <td><a href='https://jr.zerobug-57.fr/glpi/front/ticket.form.php?id=$ticket_id' target='_blank'>$ticket_id</a></td>
-                             <td>$entity_name</td>
-                             <td>$link</td>
-                             <td>$status</td>
-                             <td>$date</td>
-                           </tr>";
-                 }
-               } else {
-                  echo '<tr><td colspan="5" class="text-center">Aucun ticket trouvé.</td></tr>';
-               }
-            
-               echo '</tbody></table></div></div></div>';
-            } else {
-               echo '<br><div class="alert alert-info mb-4 w-100">Aucun ticket associé à l\'élément :  <strong>' . htmlspecialchars($SN) . '</strong>.</div>';
-            }
-            
-            // Active les tooltips Bootstrap
-            echo "<script>
-               $(function () {
-                  $('[data-toggle=\"tooltip\"]').tooltip()
-               })
-            </script>";
+         $tickets_id_list = [];
+         
+         $query = $DB->query("SELECT tickets_id FROM glpi_plugin_warrantycheck_tickets WHERE serial_number = '$SN'");
+         if ($row = $query->fetch_object()) {
+            $tickets_id_list = array_filter(array_map('intval', explode(',', $row->tickets_id)));
          }
+         
+         if (count($tickets_id_list) > 0) {
+         
+            $in_clause = implode(',', $tickets_id_list);
+         
+            $tickets_query = "
+               SELECT glpi_tickets.id, glpi_tickets.name, glpi_tickets.status, glpi_tickets.date_creation, glpi_tickets.content,
+                        glpi_entities.name AS entity_name
+               FROM glpi_tickets
+               LEFT JOIN glpi_entities ON glpi_entities.id = glpi_tickets.entities_id
+               WHERE glpi_tickets.id IN ($in_clause)
+               ORDER BY glpi_tickets.date_creation DESC;
+            ";
+            $result = $DB->query($tickets_query);
+         
+            echo '<br><div class="card mb-4 shadow-sm w-100">
+                     <div class="card-header bg-dark text-white fw-bold">Tickets liés à l\'élément : ' . htmlspecialchars($SN) . '</div>
+                     <div class="card-body">
+                     <div class="table-responsive">
+                     <table class="table table-bordered table-hover">
+                        <thead class="thead-light">
+                           <tr>
+                                 <th>ID du ticket</th>
+                                 <th>Entité</th>
+                                 <th>Titre du ticket</th>
+                                 <th>Statut</th>
+                                 <th>Date de création</th>
+                           </tr>
+                        </thead>
+                        <tbody>';
+         
+            if ($result && $DB->numrows($result)) {
+               while ($row = $DB->fetchassoc($result)) {
+                  $ticket_id   = (int)$row['id'];
+                  $entity_name = htmlspecialchars($row['entity_name']);
+                  $name        = htmlspecialchars($row['name']);
+                  $status      = Ticket::getStatus($row['status']);
+                  $date        = Html::convDateTime($row['date_creation']);
+               
+                  // Traitement du contenu enrichi pour le tooltip GLPI
+                  $ticket_content = html_entity_decode($row['content']);
+                  $tooltip_html = Glpi\RichText\RichText::getEnhancedHtml($ticket_content);
+               
+                  // Génération du lien avec le tooltip GLPI
+                  $link = "<a id='ticket{$ticket_id}' href='" . Ticket::getFormURLWithID($ticket_id) . "'>$name</a>";
+                  $link = sprintf(
+                        __('%1$s %2$s'),
+                        $link,
+                        Html::showToolTip($tooltip_html, [
+                           'applyto' => 'ticket' . $ticket_id,
+                           'display' => true
+                        ])
+                  );
+               
+                  echo "<tr>
+                           <td><a href='https://jr.zerobug-57.fr/glpi/front/ticket.form.php?id=$ticket_id' target='_blank'>$ticket_id</a></td>
+                           <td>$entity_name</td>
+                           <td>$link</td>
+                           <td>$status</td>
+                           <td>$date</td>
+                        </tr>";
+               }
+            } else {
+               echo '<tr><td colspan="5" class="text-center">Aucun ticket trouvé.</td></tr>';
+            }
+         
+            echo '</tbody></table></div></div></div>';
+         } else {
+            echo '<br><div class="alert alert-info mb-4 w-100">Aucun ticket associé à l\'élément :  <strong>' . htmlspecialchars($SN) . '</strong>.</div>';
+         }
+         
+         // Active les tooltips Bootstrap
+         echo "<script>
+            $(function () {
+               $('[data-toggle=\"tooltip\"]').tooltip()
+            })
+         </script>";
 
          ?>
             <script>
                function copyToClipboard(text) {
-               if (!text || text.trim() === '') return; // ne rien faire si vide
+                  if (!text || text.trim() === '') return; // ne rien faire si vide
 
-               navigator.clipboard.writeText(text).then(function() {
-                  console.log('Texte copié dans le presse-papiers : ' + text);
-               }, function(err) {
-                  console.error('Erreur de copie : ', err);
-               });
+                  navigator.clipboard.writeText(text).then(function() {
+                     console.log('Texte copié dans le presse-papiers : ' + text);
+                  }, function(err) {
+                     console.error('Erreur de copie : ', err);
+                  });
                }
 
-
                document.addEventListener("DOMContentLoaded", function () {
-    const form = document.getElementById("myForm");
-    const spinner = document.getElementById("loader-wrapper");
-    const submitBtn = document.getElementById("sig-submitBtn");
+                  const form = document.getElementById("myForm");
+                  const spinner = document.getElementById("loader-wrapper");
+                  const submitBtn = document.getElementById("sig-submitBtn");
 
-    form.addEventListener("submit", function () {
-        spinner.style.display = "block";
-        submitBtn.disabled = true;
-    });
-});
-
+                  form.addEventListener("submit", function () {
+                     spinner.style.display = "block";
+                     submitBtn.disabled = true;
+                  });
+               });
             </script>
          <?php
 
