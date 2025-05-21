@@ -287,8 +287,9 @@ class PluginWarrantycheckGenerateCRI extends CommonGLPI {
                         ])
                   );
                
+                  $urlTicket = $CFG_GLPI["root_doc"]."/front/ticket.form.php?id=$ticket_id";
                   echo "<tr>
-                           <td><a href='https://jr.zerobug-57.fr/glpi/front/ticket.form.php?id=$ticket_id' target='_blank'>$ticket_id</a></td>
+                           <td><a href='$urlTicket' target='_blank'>$ticket_id</a></td>
                            <td>$entity_name</td>
                            <td>$link</td>
                            <td>$status</td>
