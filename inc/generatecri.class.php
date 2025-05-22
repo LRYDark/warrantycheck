@@ -226,92 +226,94 @@ class PluginWarrantycheckGenerateCRI extends CommonGLPI {
                }
             }
          }
-         
-         $tickets_id_list = [];
-         
-         $query = $DB->query("SELECT tickets_id FROM glpi_plugin_warrantycheck_tickets WHERE serial_number = '$SN'");
-         if ($row = $query->fetch_object()) {
-            $tickets_id_list = array_filter(array_map('intval', explode(',', $row->tickets_id)));
-         }
-         
-         if (count($tickets_id_list) > 0) {
-         
-            $in_clause = implode(',', $tickets_id_list);
-         
-            $tickets_query = "
-               SELECT glpi_tickets.id, glpi_tickets.name, glpi_tickets.status, glpi_tickets.date_creation, glpi_tickets.content,
-                        glpi_entities.name AS entity_name
-               FROM glpi_tickets
-               LEFT JOIN glpi_entities ON glpi_entities.id = glpi_tickets.entities_id
-               WHERE glpi_tickets.id IN ($in_clause)
-               ORDER BY glpi_tickets.date_creation DESC;
-            ";
-            $result = $DB->query($tickets_query);
-         
-            echo '<br><div class="card mb-4 shadow-sm w-100">
-                     <div class="card-header bg-dark text-white fw-bold">Tickets liés à l\'élément : ' . htmlspecialchars($SN) . '</div>
-                     <div class="card-body">
-                     <div class="table-responsive">
-                     <table class="table table-bordered table-hover">
-                        <thead class="thead-light">
-                           <tr>
-                                 <th>ID du ticket</th>
-                                 <th>Entité</th>
-                                 <th>Titre du ticket</th>
-                                 <th>Statut</th>
-                                 <th>Date de création</th>
-                           </tr>
-                        </thead>
-                        <tbody>';
-         
-            if ($result && $DB->numrows($result)) {
-               while ($row = $DB->fetchassoc($result)) {
-                  $ticket_id   = (int)$row['id'];
-                  $entity_name = htmlspecialchars($row['entity_name']);
-                  $name        = htmlspecialchars($row['name']);
-                  $status      = Ticket::getStatus($row['status']);
-                  $date        = Html::convDateTime($row['date_creation']);
-               
-                  // Traitement du contenu enrichi pour le tooltip GLPI
-                  $ticket_content = html_entity_decode($row['content']);
-                  $tooltip_html = Glpi\RichText\RichText::getEnhancedHtml($ticket_content);
-               
-                  // Génération du lien avec le tooltip GLPI
-                  $link = "<a id='ticket{$ticket_id}' href='" . Ticket::getFormURLWithID($ticket_id) . "'>$name</a>";
-                  $link = sprintf(
-                        __('%1$s %2$s'),
-                        $link,
-                        Html::showToolTip($tooltip_html, [
-                           'applyto' => 'ticket' . $ticket_id,
-                           'display' => true
-                        ])
-                  );
-               
-                  $urlTicket = $CFG_GLPI["root_doc"]."/front/ticket.form.php?id=$ticket_id";
-                  echo "<tr>
-                           <td><a href='$urlTicket' target='_blank'>$ticket_id</a></td>
-                           <td>$entity_name</td>
-                           <td>$link</td>
-                           <td>$status</td>
-                           <td>$date</td>
-                        </tr>";
-               }
-            } else {
-               echo '<tr><td colspan="5" class="text-center">Aucun ticket trouvé.</td></tr>';
-            }
-         
-            echo '</tbody></table></div></div></div>';
-         } else {
-            echo '<br><div class="alert alert-info mb-4 w-100">Aucun ticket associé à l\'élément :  <strong>' . htmlspecialchars($SN) . '</strong>.</div>';
-         }
-         
-         // Active les tooltips Bootstrap
-         echo "<script>
-            $(function () {
-               $('[data-toggle=\"tooltip\"]').tooltip()
-            })
-         </script>";
 
+         if (isset($_GET['cache_id'])){
+            $tickets_id_list = [];
+            
+            $query = $DB->query("SELECT tickets_id FROM glpi_plugin_warrantycheck_tickets WHERE serial_number = '$SN'");
+            if ($row = $query->fetch_object()) {
+               $tickets_id_list = array_filter(array_map('intval', explode(',', $row->tickets_id)));
+            }
+            
+            if (count($tickets_id_list) > 0) {
+            
+               $in_clause = implode(',', $tickets_id_list);
+            
+               $tickets_query = "
+                  SELECT glpi_tickets.id, glpi_tickets.name, glpi_tickets.status, glpi_tickets.date_creation, glpi_tickets.content,
+                           glpi_entities.name AS entity_name
+                  FROM glpi_tickets
+                  LEFT JOIN glpi_entities ON glpi_entities.id = glpi_tickets.entities_id
+                  WHERE glpi_tickets.id IN ($in_clause)
+                  ORDER BY glpi_tickets.date_creation DESC;
+               ";
+               $result = $DB->query($tickets_query);
+            
+               echo '<br><div class="card mb-4 shadow-sm w-100">
+                        <div class="card-header bg-dark text-white fw-bold">Tickets liés à l\'élément : ' . htmlspecialchars($SN) . '</div>
+                        <div class="card-body">
+                        <div class="table-responsive">
+                        <table class="table table-bordered table-hover">
+                           <thead class="thead-light">
+                              <tr>
+                                    <th>ID du ticket</th>
+                                    <th>Entité</th>
+                                    <th>Titre du ticket</th>
+                                    <th>Statut</th>
+                                    <th>Date de création</th>
+                              </tr>
+                           </thead>
+                           <tbody>';
+            
+               if ($result && $DB->numrows($result)) {
+                  while ($row = $DB->fetchassoc($result)) {
+                     $ticket_id   = (int)$row['id'];
+                     $entity_name = htmlspecialchars($row['entity_name']);
+                     $name        = htmlspecialchars($row['name']);
+                     $status      = Ticket::getStatus($row['status']);
+                     $date        = Html::convDateTime($row['date_creation']);
+                  
+                     // Traitement du contenu enrichi pour le tooltip GLPI
+                     $ticket_content = html_entity_decode($row['content']);
+                     $tooltip_html = Glpi\RichText\RichText::getEnhancedHtml($ticket_content);
+                  
+                     // Génération du lien avec le tooltip GLPI
+                     $link = "<a id='ticket{$ticket_id}' href='" . Ticket::getFormURLWithID($ticket_id) . "'>$name</a>";
+                     $link = sprintf(
+                           __('%1$s %2$s'),
+                           $link,
+                           Html::showToolTip($tooltip_html, [
+                              'applyto' => 'ticket' . $ticket_id,
+                              'display' => true
+                           ])
+                     );
+                  
+                     $urlTicket = $CFG_GLPI["root_doc"]."/front/ticket.form.php?id=$ticket_id";
+                     echo "<tr>
+                              <td><a href='$urlTicket' target='_blank'>$ticket_id</a></td>
+                              <td>$entity_name</td>
+                              <td>$link</td>
+                              <td>$status</td>
+                              <td>$date</td>
+                           </tr>";
+                  }
+               } else {
+                  echo '<tr><td colspan="5" class="text-center">Aucun ticket trouvé.</td></tr>';
+               }
+            
+               echo '</tbody></table></div></div></div>';
+            } else {
+               echo '<br><div class="alert alert-info mb-4 w-100">Aucun ticket associé à l\'élément :  <strong>' . htmlspecialchars($SN) . '</strong>.</div>';
+            }
+            
+            // Active les tooltips Bootstrap
+            echo "<script>
+               $(function () {
+                  $('[data-toggle=\"tooltip\"]').tooltip()
+               })
+            </script>";
+         }
+         
          ?>
             <script>
                function copyToClipboard(text) {
