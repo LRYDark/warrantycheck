@@ -4,7 +4,7 @@ include ('../../../inc/includes.php');
 global $DB;
 
 $query = "SELECT id, tickets_id, serial_number FROM glpi_plugin_warrantycheck_tickets ORDER BY id ASC";
-$result = $DB->query($query);
+$result = $DB->doQuery($query);
 
 if ($DB->numrows($result) > 0) {
     while ($data = $result->fetch_assoc()) {

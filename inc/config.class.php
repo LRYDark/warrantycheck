@@ -17,7 +17,7 @@ class PluginWarrantycheckConfig extends CommonDBTM
       }
    }
 
-   static function canCreate()
+   /*static function canCreate()
    {
       return Session::haveRight('config', UPDATE);
    }
@@ -30,11 +30,13 @@ class PluginWarrantycheckConfig extends CommonDBTM
    static function canUpdate()
    {
       return Session::haveRight('config', UPDATE);
-   }
+   }*/
 
    static function getTypeName($nb = 0)
    {
-      return __("Warrantycheck", "warrantycheck");
+      //return __("Warrantycheck", "warrantycheck");
+      return __('<span class="d-flex align-items-center"><i class="fa-solid fa-circle-check me-2"></i>warrantycheck</span>', "warrantycheck");
+
    }
 
    static function getInstance()
@@ -351,6 +353,11 @@ class PluginWarrantycheckConfig extends CommonDBTM
          echo "</td>";
       echo "</tr>";
 
+      echo "<tr class='tab_bg_1'>";
+      echo "<td class='center' colspan='2'>";
+      echo "<input type='submit' class='submit' name='update' value=\"" . __('Save') . "\">";
+      echo "</td>";
+      echo "</tr>";
       $config->showFormButtons(['candel' => false]);
       return false;
    }
@@ -442,7 +449,8 @@ class PluginWarrantycheckConfig extends CommonDBTM
    function getTabNameForItem(CommonGLPI $item, $withtemplate = 0)
    {
       if ($item->getType() == 'Config') {
-         return __("Warrantycheck", "warrantycheck");
+         //return __("Warrantycheck", "warrantycheck");
+         return __('<span class="d-flex align-items-center"><i class="fa-solid fa-circle-check me-2"></i>warrantycheck</span>', "warrantycheck");
       }
       return '';
    }
@@ -493,12 +501,12 @@ class PluginWarrantycheckConfig extends CommonDBTM
                   `prefix_blacklist` MEDIUMTEXT NULL DEFAULT 'KB,X8,0X,DE23,PRB,ERR,VER',
                   PRIMARY KEY (`id`)
          ) ENGINE=InnoDB DEFAULT CHARSET={$default_charset} COLLATE={$default_collation} ROW_FORMAT=DYNAMIC;";
-         $DB->query($query) or die($DB->error());
+         $DB->doQuery($query) or die($DB->error());
          $config->add(['id' => 1,]);
       }else{
          if ($_SESSION['PLUGIN_WARRANTYCHECK_VERSION'] > '1.0.3'){
             // Vérifier si les colonnes existent déjà
-            $columns = $DB->query("SHOW COLUMNS FROM `$table`")->fetch_all(MYSQLI_ASSOC);
+            $columns = $DB->doQuery("SHOW COLUMNS FROM `$table`")->fetch_all(MYSQLI_ASSOC);
    
             // Liste des colonnes à vérifier
             $required_columns = [
@@ -527,7 +535,7 @@ class PluginWarrantycheckConfig extends CommonDBTM
                   ADD COLUMN `Filtre_Facture` TEXT NULL DEFAULT 'FA',
                   ADD COLUMN `Filtre_BonDeLivraison` TEXT NULL DEFAULT 'BL',
                   ADD COLUMN `Filtre_BonDeCommande` TEXT NULL DEFAULT 'BC';";
-               $DB->query($query) or die($DB->error());
+               $DB->doQuery($query) or die($DB->error());
             }
          }
       }

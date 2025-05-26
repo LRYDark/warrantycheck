@@ -39,7 +39,6 @@ function encryptArray($array) {
 }
 
 if (isset($_POST["update"])) {
-   $config->check($_POST['id'], UPDATE);
    $encrypted_post = encryptArray($_POST);
 
    if(!$config->update($encrypted_post)){
@@ -49,6 +48,7 @@ if (isset($_POST["update"])) {
          ERROR
       );
    }
+   Html::back();
 }
 
 Html::redirect($CFG_GLPI["root_doc"] . "/front/config.form.php?forcetab=" . urlencode('PluginWarrantycheckConfig$1'));

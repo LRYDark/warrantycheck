@@ -11,7 +11,8 @@ class PluginWarrantycheckProfile extends Profile {
 
    function getTabNameForItem(CommonGLPI $item, $withtemplate = 0) {
       if ($item->getType() == 'Profile') {
-         return __('warrantycheck', 'warrantycheck');
+         //return __('warrantycheck', 'warrantycheck');
+         return __('<span class="d-flex align-items-center"><i class="fa-solid fa-circle-check me-2"></i>warrantycheck</span>', "warrantycheck");
       }
       return '';
    }
@@ -106,10 +107,22 @@ class PluginWarrantycheckProfile extends Profile {
          }
       }
 
-      foreach ($DB->request("SELECT *
+      /*foreach ($DB->request("SELECT *
                            FROM `glpi_profilerights` 
                            WHERE `profiles_id`='" . $_SESSION['glpiactiveprofile']['id'] . "' 
                               AND `name` LIKE '%plugin_rp%'") as $prof) {
+         $_SESSION['glpiactiveprofile'][$prof['name']] = $prof['rights'];
+      }*/
+
+      $iterator = $DB->request([
+         'FROM'  => 'glpi_profilerights',
+         'WHERE' => [
+               'profiles_id' => $_SESSION['glpiactiveprofile']['id'],
+               'name'        => ['LIKE', '%plugin_warrantycheck%']
+         ]
+      ]);
+
+      foreach ($iterator as $prof) {
          $_SESSION['glpiactiveprofile'][$prof['name']] = $prof['rights'];
       }
    }
@@ -120,13 +133,24 @@ class PluginWarrantycheckProfile extends Profile {
    static function changeProfile() {
       global $DB;
 
-      foreach ($DB->request("SELECT *
+      /*foreach ($DB->request("SELECT *
                            FROM `glpi_profilerights` 
                            WHERE `profiles_id`='" . $_SESSION['glpiactiveprofile']['id'] . "' 
                               AND `name` LIKE '%plugin_rp%'") as $prof) {
          $_SESSION['glpiactiveprofile'][$prof['name']] = $prof['rights'];
-      }
+      }*/
 
+      $iterator = $DB->request([
+         'FROM'  => 'glpi_profilerights',
+         'WHERE' => [
+               'profiles_id' => $_SESSION['glpiactiveprofile']['id'],
+               'name'        => ['LIKE', '%plugin_warrantycheck%']
+         ]
+      ]);
+
+      foreach ($iterator as $prof) {
+         $_SESSION['glpiactiveprofile'][$prof['name']] = $prof['rights'];
+      }
    }
 
    static function createFirstAccess($profiles_id) {

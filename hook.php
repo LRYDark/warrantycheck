@@ -20,11 +20,11 @@ function plugin_warrantycheck_install() { // fonction installation du plugin
          KEY `users_id` (`users_id`)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci ROW_FORMAT=DYNAMIC;";
 
-      $DB->query($query) or die("error creating glpi_plugin_warrantycheck_preferences " . $DB->error());
+      $DB->doQuery($query) or die("error creating glpi_plugin_warrantycheck_preferences " . $DB->error());
    }else{
       if ($_SESSION['PLUGIN_WARRANTYCHECK_VERSION'] > '1.0.1'){
          // Vérifier si les colonnes existent déjà
-         $columns = $DB->query("SHOW COLUMNS FROM `glpi_plugin_warrantycheck_preferences`")->fetch_all(MYSQLI_ASSOC);
+         $columns = $DB->doQuery("SHOW COLUMNS FROM `glpi_plugin_warrantycheck_preferences`")->fetch_all(MYSQLI_ASSOC);
 
          // Liste des colonnes à vérifier
          $required_columns = [
@@ -37,13 +37,13 @@ function plugin_warrantycheck_install() { // fonction installation du plugin
          if (!empty($missing_columns)) {
             $query= "ALTER TABLE glpi_plugin_warrantycheck_preferences
                ADD COLUMN `statuswarranty` INT(10) NOT NULL DEFAULT '0';";
-            $DB->query($query) or die($DB->error());
+            $DB->doQuery($query) or die($DB->error());
          }
       }
 
       if ($_SESSION['PLUGIN_WARRANTYCHECK_VERSION'] > '1.0.2'){
          // Vérifier si les colonnes existent déjà
-         $columns = $DB->query("SHOW COLUMNS FROM `glpi_plugin_warrantycheck_preferences`")->fetch_all(MYSQLI_ASSOC);
+         $columns = $DB->doQuery("SHOW COLUMNS FROM `glpi_plugin_warrantycheck_preferences`")->fetch_all(MYSQLI_ASSOC);
 
          // Liste des colonnes à vérifier
          $required_columns = [
@@ -56,13 +56,13 @@ function plugin_warrantycheck_install() { // fonction installation du plugin
          if (!empty($missing_columns)) {
             $query= "ALTER TABLE glpi_plugin_warrantycheck_preferences
                ADD COLUMN `maxserial` INT(10) NOT NULL DEFAULT '9999';";
-            $DB->query($query) or die($DB->error());
+            $DB->doQuery($query) or die($DB->error());
          }
       }
 
       if ($_SESSION['PLUGIN_WARRANTYCHECK_VERSION'] > '1.0.3'){
          // Vérifier si les colonnes existent déjà
-         $columns = $DB->query("SHOW COLUMNS FROM `glpi_plugin_warrantycheck_preferences`")->fetch_all(MYSQLI_ASSOC);
+         $columns = $DB->doQuery("SHOW COLUMNS FROM `glpi_plugin_warrantycheck_preferences`")->fetch_all(MYSQLI_ASSOC);
 
          // Liste des colonnes à vérifier
          $required_columns = [
@@ -77,7 +77,7 @@ function plugin_warrantycheck_install() { // fonction installation du plugin
             $query= "ALTER TABLE glpi_plugin_warrantycheck_preferences
                ADD COLUMN `viewdoc` INT(10) NOT NULL DEFAULT '0',
                ADD COLUMN `positioning` INT(10) NOT NULL DEFAULT '0';";
-            $DB->query($query) or die($DB->error());
+            $DB->doQuery($query) or die($DB->error());
          }
       }
    }
@@ -138,7 +138,7 @@ function plugin_warrantycheck_uninstall() { // fonction desintallation du plugin
    $tables = array("glpi_plugin_warrantycheck_preferences");
 
    foreach ($tables as $table) {
-      $DB->query("DROP TABLE IF EXISTS `$table`;");
+      $DB->doQuery("DROP TABLE IF EXISTS `$table`;");
    }
    
    return true;

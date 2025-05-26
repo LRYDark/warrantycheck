@@ -13,7 +13,7 @@ function insertSurveyData(array $data) {
     $serial =  $data['serial_number'];
     if ($count > 0 && !empty($data['tickets_id'])) {
         // Récupérer la liste actuelle des tickets
-        if ($query = $DB->query("SELECT id, tickets_id FROM glpi_plugin_warrantycheck_tickets WHERE serial_number = '$serial'")->fetch_object()) {
+        if ($query = $DB->doQuery("SELECT id, tickets_id FROM glpi_plugin_warrantycheck_tickets WHERE serial_number = '$serial'")->fetch_object()) {
         
             $existing_id      = $query->id;
             $existing_tickets = array_map('trim', explode(',', $query->tickets_id)); // ✅ bonne colonne

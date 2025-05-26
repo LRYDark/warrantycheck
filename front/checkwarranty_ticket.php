@@ -1,6 +1,7 @@
 <?php
 include('../../../inc/includes.php');
 Session::checkLoginUser();
+global $DB;
 
 if (!defined('GLPI_ROOT')) {
     die("Sorry. You can't access directly to this file");
@@ -200,7 +201,7 @@ if ($Ticket_id <= 0) {
     exit;
 }
 
-$result = $DB->query("
+$result = $DB->doQuery("
    SELECT
       t.content AS ticket_content,
       tt.content AS task_content,
@@ -234,7 +235,7 @@ $resultats = [];
 require_once PLUGIN_WARRANTYCHECK_DIR . '/front/warranty_functions.php';
 $config = new PluginWarrantycheckConfig();
 $userid = Session::getLoginUserID();
-$result = $DB->query("SELECT * FROM `glpi_plugin_warrantycheck_preferences` WHERE users_id = $userid")->fetch_object();
+$result = $DB->doQuery("SELECT * FROM `glpi_plugin_warrantycheck_preferences` WHERE users_id = $userid")->fetch_object();
 $statuswarranty = $result->statuswarranty;
 $max = $result->maxserial; // Exemple : l'utilisateur définit la limite à 20
 $viewdoc = $result->viewdoc; // Exemple : l'utilisateur définit la limite à 20
