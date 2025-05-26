@@ -40,7 +40,7 @@ class PluginWarrantycheckPreference extends CommonDBTM {
    static function checkIfPreferenceExists($users_id) {
       global $DB;
 
-      $result = $DB->query("SELECT `id`
+      $result = $DB->doQuery("SELECT `id`
                 FROM `glpi_plugin_warrantycheck_preferences`
                 WHERE `users_id` = '" . $users_id . "' ");
       if ($DB->numrows($result) > 0)

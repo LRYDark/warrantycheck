@@ -1,11 +1,11 @@
 <?php
-define('PLUGIN_WARRANTYCHECK_VERSION', '1.0.6'); // version du plugin
+define('PLUGIN_WARRANTYCHECK_VERSION', '1.1.0-beta1'); // version du plugin
 $_SESSION['PLUGIN_WARRANTYCHECK_VERSION'] = PLUGIN_WARRANTYCHECK_VERSION;
 
 // Minimal GLPI version,
-define("PLUGIN_WARRANTYCHECK_MIN_GLPI", "10.0.3");
+define("PLUGIN_WARRANTYCHECK_MIN_GLPI", "11.0.0");
 // Maximum GLPI version,
-define("PLUGIN_WARRANTYCHECK_MAX_GLPI", "10.2.0");
+define("PLUGIN_WARRANTYCHECK_MAX_GLPI", "11.0.1");
 
 define("PLUGIN_WARRANTYCHECK_WEBDIR", Plugin::getWebDir("warrantycheck"));
 define("PLUGIN_WARRANTYCHECK_DIR", Plugin::getPhpDir("warrantycheck"));
@@ -35,7 +35,7 @@ function plugin_init_warrantycheck() { // fonction glpi d'initialisation du plug
 
       Plugin::registerClass('PluginWarrantycheckTicket', ['addtabon' => 'Ticket']);
 
-      $PLUGIN_HOOKS['config_page']['warrantycheck'] = 'front/config.form.php'; // initialisation de la page config
+      $PLUGIN_HOOKS['config_page']['warrantycheck'] = "../../front/config.form.php?forcetab=" . urlencode('PluginWarrantycheckConfig$1'); // initialisation de la page config
       Plugin::registerClass('PluginWarrantycheckConfig', ['addtabon' => 'Config']); // ajout de la de la class config dans glpi
 
       if (Session::haveRight('plugin_warrantycheck', READ)) {

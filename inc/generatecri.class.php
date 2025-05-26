@@ -230,7 +230,7 @@ class PluginWarrantycheckGenerateCRI extends CommonGLPI {
          if (isset($_GET['cache_id'])){
             $tickets_id_list = [];
             
-            $query = $DB->query("SELECT tickets_id FROM glpi_plugin_warrantycheck_tickets WHERE serial_number = '$SN'");
+            $query = $DB->doQuery("SELECT tickets_id FROM glpi_plugin_warrantycheck_tickets WHERE serial_number = '$SN'");
             if ($row = $query->fetch_object()) {
                $tickets_id_list = array_filter(array_map('intval', explode(',', $row->tickets_id)));
             }
@@ -247,7 +247,7 @@ class PluginWarrantycheckGenerateCRI extends CommonGLPI {
                   WHERE glpi_tickets.id IN ($in_clause)
                   ORDER BY glpi_tickets.date_creation DESC;
                ";
-               $result = $DB->query($tickets_query);
+               $result = $DB->doQuery($tickets_query);
             
                echo '<br><div class="card mb-4 shadow-sm w-100">
                         <div class="card-header bg-dark text-white fw-bold">Tickets liés à l\'élément : ' . htmlspecialchars($SN) . '</div>

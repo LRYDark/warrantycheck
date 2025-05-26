@@ -48,7 +48,7 @@ class PluginWarrantycheckTicket extends CommonDBTM {
             OR `$column` LIKE '%,$value'
             OR `$column` LIKE '%,{$value},%'
       ";
-      $res = $DB->query($sql);
+      $res = $DB->doQuery($sql);
       if ($row = $DB->fetchassoc($res)) {
          return (int)$row['total'];
       }
@@ -226,7 +226,7 @@ class PluginWarrantycheckTicket extends CommonDBTM {
       global $DB, $CFG_GLPI, $warrantycheck;
       $config = new PluginWarrantycheckConfig();
       $userid = Session::getLoginUserID();
-      $result = $DB->query("SELECT * FROM `glpi_plugin_warrantycheck_preferences` WHERE users_id = $userid")->fetch_object();
+      $result = $DB->doQuery("SELECT * FROM `glpi_plugin_warrantycheck_preferences` WHERE users_id = $userid")->fetch_object();
       $VerifURL = isset($_GET['_target']) ? basename($_GET['_target']) : '';
 
       $checkvalidate = $result->checkvalidate;
@@ -236,7 +236,7 @@ class PluginWarrantycheckTicket extends CommonDBTM {
       $entities_id = 0;
       $idticket = $_GET['id'];
       if($idticket){
-         if($query = $DB->query("SELECT entities_id FROM `glpi_tickets` WHERE id = $idticket")->fetch_object()){
+         if($query = $DB->doQuery("SELECT entities_id FROM `glpi_tickets` WHERE id = $idticket")->fetch_object()){
             $entities_id = $query->entities_id;
          }
       }
@@ -497,7 +497,7 @@ class PluginWarrantycheckTicket extends CommonDBTM {
                      PRIMARY KEY (`id`),
                      KEY `tickets_id` (`tickets_id`)
                   ) ENGINE=InnoDB DEFAULT CHARSET={$default_charset} COLLATE={$default_collation} ROW_FORMAT=DYNAMIC;";
-         $DB->query($query) or die($DB->error());
+         $DB->doQuery($query) or die($DB->error());
       }
    }
 
