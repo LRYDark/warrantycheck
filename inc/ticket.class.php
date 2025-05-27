@@ -10,6 +10,10 @@ class PluginWarrantycheckTicket extends CommonDBTM {
    public static $rightname = 'plugin_warrantycheck';
    public  static  $warrantycheck = 0 ;
 
+   static function getIcon() {
+      return "far fa-check-circle";
+   }
+
 //*--------------------------------------------------------------------------------------------- WARRANTYCHECK ONGLET
    static function getTypeName($nb = 0) { // voir doc glpi 
       if(Session::haveRight("plugin_warrantycheck", READ)){
