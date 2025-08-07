@@ -356,7 +356,8 @@ foreach ($liste as $serial) {
 
     /* ----------  Bloc BL ---------- */
     if (Plugin::isPluginActive('gestion') && $result->SageLocal == 1) {
-        if (strncasecmp($serial, 'BL', 2) === 0) {
+        $configGestion = new PluginGestionConfig();
+        if (strncasecmp($serial, 'BL', 2) === 0 && $configGestion->mode() == 1) {
             try {
                 require_once PLUGIN_GESTION_DIR.'/vendor/autoload.php';
                 require_once PLUGIN_GESTION_DIR.'/front/SageApi.php';
@@ -415,6 +416,8 @@ foreach ($liste as $serial) {
                 }
                 continue;
             }
+        }else{
+            $warnings[] = '';
         }
     }else{
         $warnings[] = '';
