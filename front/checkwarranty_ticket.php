@@ -408,7 +408,11 @@ foreach ($liste as $serial) {
                 $warnings[] = "$serial a été ajouté au ticket $ticketId.";
 
             } catch (Throwable $e) {
-                $warnings[] = "Erreur BL « $serial » : ".$e->getMessage();
+                if (strpos($e->getMessage(), '(404)') !== false) {
+                    $warnings[] = '';
+                }else{
+                    $warnings[] = "Erreur BL « $serial » : ".$e->getMessage();
+                }
                 continue;
             }
         }
