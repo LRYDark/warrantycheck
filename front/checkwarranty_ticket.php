@@ -353,8 +353,77 @@ foreach ($liste as $serial) {
             }
         }
     }
+
+    /* ----------  Bloc BL ---------- */
+    if (Plugin::isPluginActive('gestion') && $result->SageLocal == 1) {
+        if (strncasecmp($serial, 'BL', 2) === 0) {
+            try {
+                require_once PLUGIN_GESTION_DIR.'/vendor/autoload.php';
+                require_once PLUGIN_GESTION_DIR.'/front/SageApi.php';
+
+                $fields   = parseDocument($serial);
+                $ticketId = $Ticket_id;          // ticket courant
+
+                /* --------- 1. Cherche si le BL existe déjà ------------- */
+                $existingTickets = [];
+                foreach ($DB->request([
+                        'SELECT' => 'tickets_id',
+                        'FROM'   => 'glpi_plugin_gestion_surveys',
+                        'WHERE'  => ['url_bl' => $serial]
+                ]) as $row) {
+                    $existingTickets[] = (int)$row['tickets_id'];
+                }
+
+                if (!empty($existingTickets)) {
+                    /* --- 1. Le BL est déjà sur CE ticket → on ignore --- */
+                    if (in_array($ticketId, $existingTickets, true)) {
+                        $warnings[] = '';
+                        continue;                         // rien à faire, pas de warning
+                    }
+
+                    /* --- 2. Le BL est ailleurs → on prévient ----------- */
+                    $other = array_diff($existingTickets, [$ticketId]);   // retire l’ID courant
+                    $list  = implode(', ', $other);
+                    $warnings[] = "$serial attribué au(x) ticket(s) : $list";
+                    continue;                         // on ne réinsère pas
+                }
+
+                /* --------- 2. Insertion si aucun doublon --------------- */
+                $save     = 'Sage';
+                $file_path = $serial.'_'.str_replace(' ', '_', $fields['client']);
+                $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+                $fileUrl  = "{$protocol}://{$_SERVER['SERVER_NAME']}".PLUGIN_GESTION_WEBDIR."/ajax/view_pdf.php?id={$serial}";
+                $itemUrl  = $serial;
+                $tracker  = $fields['tracker'] ?? null;
+
+                $entities_id = $DB->query("SELECT entities_id FROM `glpi_tickets` WHERE id = $ticketId")->fetch_object();
+                $entities_id = $entities_id->entities_id;
+
+                $sql  = "INSERT INTO glpi_plugin_gestion_surveys
+                            (tickets_id, entities_id, url_bl, bl, doc_url, tracker, save)
+                        VALUES (?,          ?,         ?,      ?,  ?,       ?,     ?)";
+                $stmt = $DB->prepare($sql);
+                $stmt->execute([$ticketId, $entities_id, $itemUrl, $file_path, $fileUrl, $tracker, $save]);
+
+                $warnings[] = "$serial a été ajouté au ticket $ticketId.";
+
+            } catch (Throwable $e) {
+                $warnings[] = "Erreur BL « $serial » : ".$e->getMessage();
+                continue;
+            }
+        }
+    }else{
+        $warnings[] = '';
+    }
 }
 
-header('Content-Type: application/json');
-echo json_encode($resultats);
+/*  … après la boucle …  */
+/* ---------------------- */
+$warnings = array_values(array_filter($warnings));   // supprime null / '' 
+
+header('Content-Type: application/json; charset=utf-8');
+echo json_encode([
+   'resultats' => $resultats,
+   'warnings'  => $warnings          // peut être [], mais pas ['']
+]);
 

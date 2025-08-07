@@ -278,7 +278,7 @@ class PluginWarrantycheckTicket extends CommonDBTM {
 
                if($norepeat == false){
                   ?>
-                     <style>
+                    <style>
                         .toast-container {
                            position: fixed;
                            bottom: 20px;
@@ -306,6 +306,7 @@ class PluginWarrantycheckTicket extends CommonDBTM {
                            max-height: 300px; /* Limite la hauteur maximale du corps du toast */
                            overflow-y: auto; /* Ajoute un ascenseur si nécessaire */
                         }
+
                      </style>
 
                      <?php
@@ -318,22 +319,23 @@ class PluginWarrantycheckTicket extends CommonDBTM {
                      };
                      ?>
 
-                     <div class="toast-container position-fixed <?= $toastPositionClass ?> p-3" id="warranty-toast-container" style="display:none;">
-                        <div id="myToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+                     <div class="toast-container position-fixed <?= $toastPositionClass ?> p-3"
+                        id="warranty-toast-container" style="display:none;">
+                        <div id="myToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true" data-bs-autohide="false">
                            <div class="toast-header bg-dark text-white">
-                              <strong class="mr-auto">Données extraites du ticket</strong>
-                                 <button type="button" class="close" aria-label="Close">
-                                    <span aria-hidden="true" class="text-white">&times;</span>
-                                 </button>
+                              <strong class="me-auto">Données extraites du ticket</strong>
+                              <button type="button" class="close" aria-label="Close">
+                                 <span aria-hidden="true" class="text-white">&times;</span>
+                              </button>
                            </div>
                            <div class="toast-body" id="warranty_result">
-                              <div class="text-center">
-                                 <div class="spinner-border text-primary" role="status">
-                                    <span class="visually-hidden">Chargement...</span>
-                                 </div>                           
-                                 <div>Extraction des informations en cours...</div>
+                              <div class="text-center" id="initial-loader">
+                                 <div id="wc-spinner" class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Chargement…</span>
+                                 </div>
+                                 <div>Extraction des informations en cours…</div>
                                  <?php if ($statuswarranty === 1){ ?>
-                                    <div>Chargement des données de garantie...</div>
+                                    <div>Chargement des données de garantie…</div>
                                  <?php } ?>
                               </div>
                            </div>
@@ -341,76 +343,92 @@ class PluginWarrantycheckTicket extends CommonDBTM {
                      </div>
 
                      <script>
-                        if (window.top === window.self) {
-                           const checkValidate = <?php echo ($checkvalidate == 0 ? 'true' : 'false'); ?>;
-                           const toastDelay = <?php echo (isset($toastdelay) ? (int)$toastdelay : 30000); ?>;
+                     if (window.top === window.self) {
+                        const checkValidate = <?= ($checkvalidate == 0 ? 'true' : 'false'); ?>;
+                        const toastDelay    = <?= isset($toastdelay) ? (int)$toastdelay : 30000; ?>;
 
-                           $(document).ready(function(){
-                              const ticketID = <?php echo json_encode($_GET['id']); ?>;
-                              const entityID = <?php echo json_encode($entities_id); ?>;
+                        $(function () {
 
-                              // Affiche immédiatement le toast avec le spinner
-                              $('#warranty-toast-container').show();
-                              $('#myToast').toast({ delay: toastDelay }).toast('show');
+                           const ticketID = <?= json_encode($_GET['id']); ?>;
 
-                              $.ajax({
-                                 url: '<?php echo $CFG_GLPI["root_doc"]; ?>/plugins/warrantycheck/front/checkwarranty_ticket.php',
-                                 method: 'GET',
-                                 data: {ticket_id: ticketID},
-                                 dataType: 'json', // JSON
-                                 success: function(data) {
-                                    let html = "";
+                           /* ----- Affiche immédiatement le toast + spinner ----- */
+                           $('#warranty-toast-container').show();
+                           $('#myToast').toast({delay: toastDelay}).toast('show');
 
-                                    if (data.length === 0) {
-                                       if (!checkValidate) {
-                                          html = "Aucun numéro de série trouvé.";
-                                          $('#warranty_result').html(html);
-                                       }else {
-                                          setTimeout(() => {
-                                             $('#myToast').toast('hide');
-                                             $('#warranty-toast-container').hide();
-                                          }, 2000);
-                                       }
-                                       return;
-                                    }
+                           $.ajax({
+                              url: '<?= $CFG_GLPI["root_doc"]; ?>/plugins/warrantycheck/front/checkwarranty_ticket.php',
+                              method: 'GET',
+                              data: { ticket_id: ticketID },
+                              dataType: 'json',
 
-                                    data.forEach(entry => {
-                                       let info = entry.info || null;
-                                       let statusText = entry.warranty_status || null;
-                                       let fabricant = entry.fabricant || null;
-                                       let colorClass = 'badge bg-secondary';
+                              success: function (data) {
+                                 /* ---------- Nettoie l’affichage initial ---------- */
+                                 $('#initial-loader').remove();          // supprime spinner + texte
 
-                                       if (statusText && statusText.toLowerCase().includes('active')) {
-                                          colorClass = 'badge bg-success';
-                                       } else if (statusText && statusText.toLowerCase().includes('expired')) {
-                                          colorClass = 'badge bg-danger';
-                                       }
+                                 /* ---------- Warnings (BL déjà attribué) ---------- */
+                                 if (data.warnings && data.warnings.length) {
+                                    data.warnings.forEach(msg=>{
+                                       $('#warranty_result').append(
+                                          `<div class="alert alert-warning p-2 mb-2">${msg}</div>`
+                                       );
+                                    });
+                                 }
 
-                                       const pluginUrl = '<?php echo $CFG_GLPI["root_doc"]; ?>/plugins/warrantycheck/front/generatecri_loader.php';
+                                 /* ---------- Résultats de garantie --------------- */
+                                 if (data.resultats && data.resultats.length) {
+
+                                    const pluginUrl = '<?= $CFG_GLPI["root_doc"]; ?>/plugins/warrantycheck/front/generatecri_loader.php';
+                                    let html = '';
+
+                                    data.resultats.forEach(entry=>{
+                                       const info       = entry.info            ?? '';
+                                       const statusText = entry.warranty_status ?? '';
+                                       const fabricant  = entry.fabricant       ?? '';
+                                       let   colorClass = 'badge bg-secondary';
+
+                                       if (statusText.toLowerCase().includes('active'))  colorClass = 'badge bg-success';
+                                       if (statusText.toLowerCase().includes('expired')) colorClass = 'badge bg-danger';
+
                                        const serialLink = `<a href="${pluginUrl}?serial=${encodeURIComponent(entry.serial)}" target="_blank">${entry.serial}</a>`;
 
                                        html += `
-                                          <div style="margin-bottom: 6px; padding-bottom: 6px; border-bottom: 1px solid #ccc;">
+                                          <div style="margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid #ccc;">
                                              <div><strong>${info}</strong> ${serialLink}</div>
-                                             ${fabricant ? `<div><strong>Fabricant :</strong> ${fabricant}</div>` : ''}
+                                             ${fabricant  ? `<div><strong>Fabricant :</strong> ${fabricant}</div>` : ''}
                                              ${statusText ? `<div><strong>Statut de la garantie :</strong> <span class="${colorClass}">${statusText}</span></div>` : ''}
-                                          </div>
-                                       `;
+                                          </div>`;
                                     });
 
-                                    $('#warranty_result').html(html);
-                                 },
-                                 error: function(err) {
-                                    console.error("Erreur AJAX garantie :", err);
-                                    $('#warranty_result').html("Erreur lors de la récupération des données de garantie.");
-                                 }
-                              });
+                                    $('#warranty_result').append(html);
 
-                              $('.toast .close').on('click', function() {
-                                 $('#myToast').toast('hide');
-                              });
+                                 } else if (!checkValidate) {
+                                    $('#warranty_result').text('Aucun numéro de série trouvé.');
+                                 }
+
+                                 /* ----- Ferme le toast après la durée configurée ----- */
+                                 setTimeout(() => {$('#myToast').toast('hide');}, toastDelay);
+                              },
+
+                              error: function (xhr) {
+                                 $('#initial-loader').remove();
+                                 $('#warranty_result').text('Erreur lors de la récupération des données de garantie.');
+                                 console.error('[WarrantyCheck] AJAX error :', xhr);
+                                 setTimeout(() => {$('#myToast').toast('hide');}, toastDelay);
+                              }
                            });
-                        }
+
+                           /* -------- Fermeture manuelle -------- */
+                           $('.toast .close').on('click', function () {
+                              $('#myToast').toast('hide');
+                              $('#warranty-toast-container').hide();
+                           });
+
+                           /* -------- Cache le conteneur quand le toast est hidden -------- */
+                           $('#myToast').on('hidden.bs.toast', () => {
+                              $('#warranty-toast-container').hide();
+                           });
+                        });
+                     }
                      </script>
                   <?php
                }

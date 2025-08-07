@@ -61,6 +61,7 @@ class PluginWarrantycheckPreference extends CommonDBTM {
       $input["maxserial"]                    = 9999;
       $input["viewdoc"]                      = 0;
       $input["positioning"]                  = 0;
+      $input["SageLocal"]                  = 0;
       return $self->add($input);
    }
 
@@ -181,6 +182,13 @@ class PluginWarrantycheckPreference extends CommonDBTM {
       echo "<div align='center'>";
 
       echo "<table class='tab_cadre_fixe' style='margin: 0; margin-top: 5px;'>\n";
+
+      if (Plugin::isPluginActive('gestion')) {
+         echo "<tr class='tab_bg_1 top'><td>" . __('Association automatique des BL depuis Sage', 'rp') . "</td>";
+         echo "<td>";
+         Dropdown::showYesNo("SageLocal", $self->fields["SageLocal"]);
+         echo "</td></tr>";
+      }
 
       // Générer les options du menu déroulant
       $positioning = [];
