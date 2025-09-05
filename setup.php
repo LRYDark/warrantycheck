@@ -1,5 +1,5 @@
 <?php
-define('PLUGIN_WARRANTYCHECK_VERSION', '1.0.7'); // version du plugin
+define('PLUGIN_WARRANTYCHECK_VERSION', '1.0.8'); // version du plugin
 $_SESSION['PLUGIN_WARRANTYCHECK_VERSION'] = PLUGIN_WARRANTYCHECK_VERSION;
 
 // Minimal GLPI version,
