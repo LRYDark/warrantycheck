@@ -80,6 +80,25 @@ function plugin_warrantycheck_install() { // fonction installation du plugin
             $DB->doQuery($query) or die($DB->error());
          }
       }
+
+      if ($_SESSION['PLUGIN_WARRANTYCHECK_VERSION'] > '1.0.6'){
+         // Vérifier si les colonnes existent déjà
+         $columns = $DB->doQuery("SHOW COLUMNS FROM `glpi_plugin_warrantycheck_preferences`")->fetch_all(MYSQLI_ASSOC);
+
+         // Liste des colonnes à vérifier
+         $required_columns = [
+            'SageLocal'
+         ];
+
+         // Liste pour les colonnes manquantes
+         $missing_columns = array_diff($required_columns, array_column($columns, 'Field'));
+
+         if (!empty($missing_columns)) {
+            $query= "ALTER TABLE glpi_plugin_warrantycheck_preferences
+               ADD COLUMN `SageLocal` INT(10) NOT NULL DEFAULT '0';";
+            $DB->doQuery($query) or die($DB->error());
+         }
+      }
    }
    
    $migration = new Migration(PLUGIN_WARRANTYCHECK_VERSION);

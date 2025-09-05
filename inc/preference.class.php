@@ -182,6 +182,13 @@ class PluginWarrantycheckPreference extends CommonDBTM {
 
       echo "<table class='tab_cadre_fixe' style='margin: 0; margin-top: 5px;'>\n";
 
+      if (Plugin::isPluginActive('gestion')) {
+         echo "<tr class='tab_bg_1 top'><td>" . __('Association automatique des BL depuis Sage', 'rp') . "</td>";
+         echo "<td>";
+         Dropdown::showYesNo("SageLocal", $self->fields["SageLocal"]);
+         echo "</td></tr>";
+      }
+
       // Générer les options du menu déroulant
       $positioning = [];
       $positioning[0] = "En bas à droite";

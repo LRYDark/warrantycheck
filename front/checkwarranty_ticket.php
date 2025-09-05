@@ -1,11 +1,12 @@
 <?php
 include('../../../inc/includes.php');
 Session::checkLoginUser();
-global $DB;
 
 if (!defined('GLPI_ROOT')) {
     die("Sorry. You can't access directly to this file");
 }
+
+global $DB, $CFG_GLPI;
 
 ob_clean(); // Vide tout ce qui a pu être envoyé avant
 
@@ -232,6 +233,7 @@ $liste = array_map(function($s) {
 }, $liste);
 
 $resultats = [];
+$warnings  = [];     
 require_once PLUGIN_WARRANTYCHECK_DIR . '/front/warranty_functions.php';
 $config = new PluginWarrantycheckConfig();
 $userid = Session::getLoginUserID();
@@ -239,7 +241,6 @@ $result = $DB->doQuery("SELECT * FROM `glpi_plugin_warrantycheck_preferences` WH
 $statuswarranty = $result->statuswarranty;
 $max = $result->maxserial; // Exemple : l'utilisateur définit la limite à 20
 $viewdoc = $result->viewdoc; // Exemple : l'utilisateur définit la limite à 20
-$resultats = [];
 
 foreach ($liste as $serial) {
 
@@ -354,8 +355,130 @@ foreach ($liste as $serial) {
             }
         }
     }
+
+    // ################################# BL #################################
+    // Normalise $result en tableau puis relance en objet avec défauts
+    $result = (object) array_merge([
+        'SageLocal'   => 0,
+        'viewdoc'     => 0,
+        'positioning' => 0,   // si tu l’utilises ailleurs
+    ], (array)($result ?? []));
+
+    $SageLocal = (int)$result->SageLocal;      // 0 si absent
+    $viewdoc   = (int)$result->viewdoc;        // 0 si absent
+    $prefixOk  = (strncasecmp((string)$serial, 'BL', 2) === 0);
+
+    /* on sort du bloc dès qu’une condition manque  ------------------------------ */
+    if (!Plugin::isPluginActive('gestion')      // plugin Gestion OFF
+        || $SageLocal !== 1 
+        || $viewdoc   !== 1                     // préférence désactivée
+        || !$prefixOk) {                        // préfixe ≠ BL
+    continue;                                 // on passe au serial suivant
+    }
+
+    /* mode Sage = 1 ? ----------------------------------------------------------- */
+    $configGestion = new PluginGestionConfig();
+    if ($configGestion->mode() != 1) {
+        continue;                                      // on passe au serial suivant
+    }
+
+    try {
+        require_once PLUGIN_GESTION_DIR.'/vendor/autoload.php';
+        require_once PLUGIN_GESTION_DIR.'/front/SageApi.php';
+
+        /* ------- Infos Sage / variables courantes ------------------------------ */
+        $fields   = parseDocument($serial);
+        $ticketId = $Ticket_id; // ID du ticket en cours
+
+        /* ------- 1. Cherche si le BL existe déjà ------------------------------- */
+        $existingRows = iterator_to_array($DB->request([
+            'SELECT' => ['id', 'tickets_id'],
+            'FROM'   => 'glpi_plugin_gestion_surveys',
+            'WHERE'  => ['url_bl' => $serial]
+        ]));
+
+        $conflicts = []; // pour stocker les tickets déjà liés
+
+        if (!empty($existingRows)) {
+            foreach ($existingRows as $row) {
+                $existingTicket = (int)$row['tickets_id'];
+                $rowId          = (int)$row['id'];
+
+                // a) déjà lié au ticket courant → on ignore
+                if ($existingTicket === $ticketId) {
+                    continue;
+                }
+
+                // b) tickets_id NULL ou 0 → on met à jour
+                if ($existingTicket === 0) {
+                    $sql = "UPDATE glpi_plugin_gestion_surveys
+                            SET tickets_id = ?
+                            WHERE id = ?";
+                    $stmt = $DB->prepare($sql);
+                    $stmt->execute([$ticketId, $rowId]);
+
+                    $warnings[] = "$serial a été mis à jour pour le ticket $ticketId.";
+                    continue;
+                }
+
+                // c) lié à d'autres tickets → on stocke pour message global
+                if ($existingTicket !== 0 && $existingTicket !== null) {
+                    $conflicts[] = $existingTicket;
+                }
+            }
+
+            // si conflits trouvés → message unique
+            if (!empty($conflicts)) {
+                $warnings[] = "$serial attribué au(x) ticket(s) : " . implode(', ', $conflicts);
+            }
+
+        } else {
+            /* ------- 2. Insertion puisqu’aucun enregistrement ------------------ */
+            $save      = 'Sage';
+            $file_path = $serial.'_'.str_replace(' ', '_', $fields['client']);
+            $protocol  = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+            $fileUrl   = "{$protocol}://{$_SERVER['SERVER_NAME']}".PLUGIN_GESTION_WEBDIR.
+                            "/view_pdf.php?id={$serial}";
+            $itemUrl   = $serial;
+            $tracker   = $fields['tracker'] ?? null;
+
+            $entities_id = (int)$DB->request([
+                'SELECT' => 'entities_id',
+                'FROM'   => 'glpi_tickets',
+                'WHERE'  => ['id' => $ticketId],
+                'LIMIT'  => 1
+            ])->current()['entities_id'];
+
+            $sql  = "INSERT INTO glpi_plugin_gestion_surveys
+                        (tickets_id, entities_id, url_bl, bl, doc_url, tracker, save)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)";
+            $stmt = $DB->prepare($sql);
+            $stmt->execute([$ticketId, $entities_id, $itemUrl, $file_path,
+                            $fileUrl,  $tracker,     $save]);
+
+            $warnings[] = "$serial a été ajouté au ticket $ticketId.";
+        }
+
+    } catch (Throwable $e) {
+
+        // on ignore silencieusement les erreurs 404 API
+        if (strpos($e->getMessage(), '(404)') !== false) {
+            continue;
+        }
+
+        // toutes les autres erreurs sont signalées
+        $warnings[] = "Erreur BL « $serial » : ".$e->getMessage();
+        continue;
+    }
 }
 
-header('Content-Type: application/json');
-echo json_encode($resultats);
+/*  … après la boucle …  */
+/* ---------------------- */
+$warnings = array_values(array_filter($warnings));   // supprime null / '' 
+
+header('Content-Type: application/json; charset=utf-8');
+echo json_encode([
+   'resultats' => $resultats,
+   'warnings'  => $warnings          // peut être [], mais pas ['']
+]);
 
