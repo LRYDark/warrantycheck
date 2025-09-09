@@ -113,6 +113,8 @@ function detectBrand($serial, $Manufacturer) {
         $dellPrefixes = $config->Filtre_Dell() ? explode(',', $config->Filtre_Dell()) : [];
         $dynabookPrefixes = $config->Filtre_Dynabook() ? explode(',', $config->Filtre_Dynabook()) : [];
         $terraPrefixes = $config->Filtre_Terra() ? explode(',', $config->Filtre_Terra()) : [];
+        $iiyamaPrefixes = $config->Filtre_IIyama() ? explode(',', $config->Filtre_IIyama()) : []; // new
+        $diversPrefixes = $config->Filtre_Autres() ? explode(',', $config->Filtre_Autres()) : []; // new
 
         if ($config->related_elements() == 1){
             $BonLivraisonPrefixes = $config->Filtre_BonDeLivraison() ? explode(',', $config->Filtre_BonDeLivraison()) : [];
@@ -128,6 +130,8 @@ function detectBrand($serial, $Manufacturer) {
             'Dell' => $dellPrefixes, 
             'Dynabook' => $dynabookPrefixes,
             'Terra' => $terraPrefixes,
+            'IIyama' => $iiyamaPrefixes, // new
+            'Divers' => $diversPrefixes, // new
         ];
 
         if ($config->related_elements() == 1){

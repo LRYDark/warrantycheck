@@ -305,6 +305,8 @@ class PluginWarrantycheckPreference extends CommonDBTM {
          generate_protected_field('Filtre_Dell',      $config->Filtre_Dell(),       $config->whitelistuser_update(), $config->whitelistuser_delete());
          generate_protected_field('Filtre_Dynabook',  $config->Filtre_Dynabook(),   $config->whitelistuser_update(), $config->whitelistuser_delete());
          generate_protected_field('Filtre_Terra',     $config->Filtre_Terra(),      $config->whitelistuser_update(), $config->whitelistuser_delete());
+         generate_protected_field('Filtre_IIyama',    $config->Filtre_IIyama(),      $config->whitelistuser_update(), $config->whitelistuser_delete()); // new
+         generate_protected_field('Filtre_Autres',    $config->Filtre_Autres(),      $config->whitelistuser_update(), $config->whitelistuser_delete());  // new
       }
 
       echo "<tr class='tab_bg_1 center'><td colspan='2'>";

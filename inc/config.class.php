@@ -121,6 +121,18 @@ class PluginWarrantycheckConfig extends CommonDBTM
          echo "</td>";
       echo "</tr>";
 
+      echo "<tr class='tab_bg_1'>"; // new
+         echo "<td>" . __("Filtre Autres", "gestion") . "</td><td>";
+            echo Html::input('Filtre_Autres', ['value' => $config->Filtre_Autres(), 'size' => 80, 'style' => 'text-transform: uppercase;']);// bouton configuration du bas de page line 1
+         echo "</td>";
+      echo "</tr>";
+
+      echo "<tr class='tab_bg_1'>"; // new
+         echo "<td>" . __("Filtre IIyama", "gestion") . "</td><td>";
+            echo Html::input('Filtre_IIyama', ['value' => $config->Filtre_IIyama(), 'size' => 80, 'style' => 'text-transform: uppercase;']);// bouton configuration du bas de page line 1
+         echo "</td>";
+      echo "</tr>";
+
       // facture, devis, bon de livraison, bon de commande
       echo "<tr class='tab_bg_1'>";
          echo "<td>" . __("Filtre Devis", "gestion") . "</td><td>";
@@ -514,6 +526,14 @@ class PluginWarrantycheckConfig extends CommonDBTM
    {
       return ($this->fields['Filtre_Terra']);
    }
+   function Filtre_Autres() // new
+   {
+      return ($this->fields['Filtre_Autres']);
+   }
+   function Filtre_IIyama() // new
+   {
+      return ($this->fields['Filtre_IIyama']);
+   }
    function Filtre_Devis()
    {
       return ($this->fields['Filtre_Devis']);
@@ -610,6 +630,7 @@ class PluginWarrantycheckConfig extends CommonDBTM
                   `Filtre_HP` TEXT NULL DEFAULT '5CD,5CG,CZC,1H',
                   `Filtre_Lenovo` TEXT NULL DEFAULT 'MP,PF,PW',
                   `Filtre_Dell` TEXT NULL,
+                  `Filtre_Autres` TEXT NULL,
                   `Filtre_Dynabook` TEXT NULL DEFAULT '41',
                   `Filtre_Terra` TEXT NULL DEFAULT 'R',
                   `Filtre_Devis` TEXT NULL DEFAULT 'DE',
@@ -626,40 +647,61 @@ class PluginWarrantycheckConfig extends CommonDBTM
          ) ENGINE=InnoDB DEFAULT CHARSET={$default_charset} COLLATE={$default_collation} ROW_FORMAT=DYNAMIC;";
          $DB->query($query) or die($DB->error());
          $config->add(['id' => 1,]);
-      }else{
-         if ($_SESSION['PLUGIN_WARRANTYCHECK_VERSION'] > '1.0.3'){
-            // Vérifier si les colonnes existent déjà
-            $columns = $DB->query("SHOW COLUMNS FROM `$table`")->fetch_all(MYSQLI_ASSOC);
-   
-            // Liste des colonnes à vérifier
-            $required_columns = [
-               'related_elements',
-               'Filtre_Devis',
-               'Filtre_Facture',
-               'Filtre_BonDeLivraison',
-               'Filtre_BonDeCommande',
-               'whitelistuser_read',
-               'whitelistuser_delete',
-               'whitelistuser_update',
-               'prefix_blacklist',
-            ];
-   
-            // Liste pour les colonnes manquantes
-            $missing_columns = array_diff($required_columns, array_column($columns, 'Field'));
-   
-            if (!empty($missing_columns)) {
-               $query= "ALTER TABLE $table
-                  ADD COLUMN `whitelistuser_read` INT(10) NULL DEFAULT '1',
-                  ADD COLUMN `whitelistuser_delete` INT(10) NULL DEFAULT '0',
-                  ADD COLUMN `whitelistuser_update` INT(10) NULL DEFAULT '1',
-                  ADD COLUMN `prefix_blacklist` MEDIUMTEXT NULL DEFAULT 'KB,X8,0X,DE23,PRB,ERR,VER',
-                  ADD COLUMN `related_elements` INT(10) NULL DEFAULT '1',
-                  ADD COLUMN `Filtre_Devis` TEXT NULL DEFAULT 'DE',
-                  ADD COLUMN `Filtre_Facture` TEXT NULL DEFAULT 'FA',
-                  ADD COLUMN `Filtre_BonDeLivraison` TEXT NULL DEFAULT 'BL',
-                  ADD COLUMN `Filtre_BonDeCommande` TEXT NULL DEFAULT 'BC';";
-               $DB->query($query) or die($DB->error());
-            }
+      }
+
+      if ($_SESSION['PLUGIN_WARRANTYCHECK_VERSION'] > '1.0.3'){
+         // Vérifier si les colonnes existent déjà
+         $columns = $DB->query("SHOW COLUMNS FROM `$table`")->fetch_all(MYSQLI_ASSOC);
+
+         // Liste des colonnes à vérifier
+         $required_columns = [
+            'related_elements',
+            'Filtre_Devis',
+            'Filtre_Facture',
+            'Filtre_BonDeLivraison',
+            'Filtre_BonDeCommande',
+            'whitelistuser_read',
+            'whitelistuser_delete',
+            'whitelistuser_update',
+            'prefix_blacklist',
+         ];
+
+         // Liste pour les colonnes manquantes
+         $missing_columns = array_diff($required_columns, array_column($columns, 'Field'));
+
+         if (!empty($missing_columns)) {
+            $query= "ALTER TABLE $table
+               ADD COLUMN `whitelistuser_read` INT(10) NULL DEFAULT '1',
+               ADD COLUMN `whitelistuser_delete` INT(10) NULL DEFAULT '0',
+               ADD COLUMN `whitelistuser_update` INT(10) NULL DEFAULT '1',
+               ADD COLUMN `prefix_blacklist` MEDIUMTEXT NULL DEFAULT 'KB,X8,0X,DE23,PRB,ERR,VER',
+               ADD COLUMN `related_elements` INT(10) NULL DEFAULT '1',
+               ADD COLUMN `Filtre_Devis` TEXT NULL DEFAULT 'DE',
+               ADD COLUMN `Filtre_Facture` TEXT NULL DEFAULT 'FA',
+               ADD COLUMN `Filtre_BonDeLivraison` TEXT NULL DEFAULT 'BL',
+               ADD COLUMN `Filtre_BonDeCommande` TEXT NULL DEFAULT 'BC';";
+            $DB->query($query) or die($DB->error());
+         }
+      }
+
+      if ($_SESSION['PLUGIN_WARRANTYCHECK_VERSION'] > '1.0.8'){ // new
+         // Vérifier si les colonnes existent déjà
+         $columns = $DB->query("SHOW COLUMNS FROM `$table`")->fetch_all(MYSQLI_ASSOC);
+
+         // Liste des colonnes à vérifier
+         $required_columns = [
+            'Filtre_IIyama',
+            'Filtre_Autres',
+         ];
+
+         // Liste pour les colonnes manquantes
+         $missing_columns = array_diff($required_columns, array_column($columns, 'Field'));
+
+         if (!empty($missing_columns)) {
+            $query= "ALTER TABLE $table
+               ADD COLUMN `Filtre_IIyama` TEXT NULL,
+               ADD COLUMN `Filtre_Autres` TEXT NULL";
+            $DB->query($query) or die($DB->error());
          }
       }
    }
