@@ -205,6 +205,7 @@ class PluginWarrantycheckConfig extends CommonDBTM
             $WARRANTY_BASE   = Plugin::getWebDir('warrantycheck');
             $WARRANTY_AJAX   = $WARRANTY_BASE . '/ajax/ajax_get_warranty_tickets.php';
             $WARRANTY_DELETE = $WARRANTY_BASE . '/ajax/ajax_delete_warranty_ticket.php';
+            $WARRANTY_EXPORT = $WARRANTY_BASE . '/ajax/ajax_export_warranty_tickets.php'; // export
 
             // Jeton CSRF pour POST
             $GLPI_CSRF = Session::getNewCSRFToken();
@@ -215,34 +216,57 @@ class PluginWarrantycheckConfig extends CommonDBTM
             <script type="text/javascript">
             const WARRANTY_AJAX_URL   = "<?= $WARRANTY_AJAX ?>";
             const WARRANTY_DELETE_URL = "<?= $WARRANTY_DELETE ?>";
+            const WARRANTY_EXPORT_URL = "<?= $WARRANTY_EXPORT ?? '' ?>"; // peut être vide si pas d'export
             const GLPI_CSRF           = "<?= $GLPI_CSRF ?>";
 
+            // Désactive globalement le cache jQuery pour les GET (belt & suspenders)
+            $.ajaxSetup({ cache: false });
+
             let WT = {
-               page: 1,
-               pageSize: 50,
-               q: '',
-               prefix: '',
-               exact: 0,
-               selected: new Set()
+            page: 1,
+            pageSize: 50,
+            q: '',
+            prefix: '',
+            exact: 0,
+            selected: new Set()
             };
 
             function parseQuery(raw) {
-               let input = String(raw || '').toLowerCase().trim();
-               let prefix = '', value = input, exact = 0;
-               if (input.startsWith('id='))      { prefix='id';     value=input.replace('id=','').trim(); exact=1; }
-               else if (input.startsWith('ticket=')) { prefix='ticket'; value=input.replace('ticket=','').trim(); exact=1; }
-               else if (input.startsWith('sn='))     { prefix='sn';     value=input.replace('sn=','').trim(); exact=1; }
-               else if (input.startsWith('id:'))     { prefix='id';     value=input.replace('id:','').trim(); }
-               else if (input.startsWith('ticket:')) { prefix='ticket'; value=input.replace('ticket:','').trim(); }
-               else if (input.startsWith('sn:'))     { prefix='sn';     value=input.replace('sn:','').trim(); }
-               return {prefix, value, exact};
+            let input = String(raw || '').toLowerCase().trim();
+            let prefix = '', value = input, exact = 0;
+            if (input.startsWith('id='))         { prefix='id';     value=input.replace('id=','').trim(); exact=1; }
+            else if (input.startsWith('ticket=')){ prefix='ticket'; value=input.replace('ticket=','').trim(); exact=1; }
+            else if (input.startsWith('sn='))    { prefix='sn';     value=input.replace('sn=','').trim();  exact=1; }
+            else if (input.startsWith('id:'))    { prefix='id';     value=input.replace('id:','').trim(); }
+            else if (input.startsWith('ticket:')){ prefix='ticket'; value=input.replace('ticket:','').trim(); }
+            else if (input.startsWith('sn:'))    { prefix='sn';     value=input.replace('sn:','').trim(); }
+            return {prefix, value, exact};
             }
 
             function loadWarrantyTickets() {
             $('#warrantyTicketsBody').html('<tr><td colspan="4">Chargement…</td></tr>');
-            $.getJSON(WARRANTY_AJAX_URL, {
-               page: WT.page, pageSize: WT.pageSize, q: WT.q, prefix: WT.prefix, exact: WT.exact
-            }, function(resp) {
+
+            $.ajax({
+               url: WARRANTY_AJAX_URL,
+               method: 'GET',
+               dataType: 'json',
+               cache: false,                 // <-- No cache
+               data: {
+                  page: WT.page,
+                  pageSize: WT.pageSize,
+                  q: WT.q,
+                  prefix: WT.prefix,
+                  exact: WT.exact,
+                  _ts: Date.now()            // <-- anti-cache URL param
+               }
+            }).done(function(resp){
+               // Si le backend renvoie {error:true}, on affiche un message lisible
+               if (resp && resp.error) {
+                  const dbg = resp.debug_html ? ("\n" + String(resp.debug_html).slice(0,500)) : "";
+                  alert("Erreur serveur: " + (resp.message || "inconnue") + dbg);
+                  $('#warrantyTicketsBody').html('<tr><td colspan="4">Erreur de chargement</td></tr>');
+                  return;
+               }
                renderWarrantyRows(resp.rows || []);
                renderPagination(resp.page, resp.pageSize, resp.total);
                updateSelectedCount();
@@ -282,45 +306,45 @@ class PluginWarrantycheckConfig extends CommonDBTM
             }
 
             function renderPagination(page, pageSize, total) {
-               const $p = $('#warrantyPagination');
-               const totalPages = Math.max(1, Math.ceil(total / pageSize));
-               if (totalPages <= 1) { $p.html(''); return; }
-               const pageBtn = (p, label, disabled=false, active=false) =>
-                  `<li class="page-item ${disabled?'disabled':''} ${active?'active':''}">
-                     <a class="page-link" href="#" data-page="${p}">${label}</a>
-                  </li>`;
-               let html = '';
-               html += pageBtn(page-1, '&laquo;', page===1);
-               const start = Math.max(1, page-2);
-               const end   = Math.min(totalPages, page+2);
-               if (start > 1) html += pageBtn(1, '1');
-               if (start > 2) html += `<li class="page-item disabled"><span class="page-link">…</span></li>`;
-               for (let p=start; p<=end; p++) html += pageBtn(p, String(p), false, p===page);
-               if (end < totalPages-1) html += `<li class="page-item disabled"><span class="page-link">…</span></li>`;
-               if (end < totalPages)   html += pageBtn(totalPages, String(totalPages));
-               html += pageBtn(page+1, '&raquo;', page===totalPages);
-               $p.html(html);
+            const $p = $('#warrantyPagination');
+            const totalPages = Math.max(1, Math.ceil(total / pageSize));
+            if (totalPages <= 1) { $p.html(''); return; }
+            const pageBtn = (p, label, disabled=false, active=false) =>
+               `<li class="page-item ${disabled?'disabled':''} ${active?'active':''}">
+                  <a class="page-link" href="#" data-page="${p}">${label}</a>
+               </li>`;
+            let html = '';
+            html += pageBtn(page-1, '&laquo;', page===1);
+            const start = Math.max(1, page-2);
+            const end   = Math.min(totalPages, page+2);
+            if (start > 1) html += pageBtn(1, '1');
+            if (start > 2) html += `<li class="page-item disabled"><span class="page-link">…</span></li>`;
+            for (let p=start; p<=end; p++) html += pageBtn(p, String(p), false, p===page);
+            if (end < totalPages-1) html += `<li class="page-item disabled"><span class="page-link">…</span></li>`;
+            if (end < totalPages)   html += pageBtn(totalPages, String(totalPages));
+            html += pageBtn(page+1, '&raquo;', page===totalPages);
+            $p.html(html);
             }
 
             // Ouverture modal
-            $('#openModalButton').on('click', function() {
-               $('#customModal').modal('show');
-               WT.page = 1;
-               loadWarrantyTickets();
+            $(document).on('click', '#openModalButton', function() {
+            $('#customModal').modal('show');
+            WT.page = 1;
+            loadWarrantyTickets();
             });
 
             // Pagination
             $(document).on('click', '#warrantyPagination .page-link', function(e){
-               e.preventDefault();
-               const target = parseInt($(this).data('page'), 10);
-               if (!isNaN(target) && target !== WT.page) { WT.page = target; loadWarrantyTickets(); }
+            e.preventDefault();
+            const target = parseInt($(this).data('page'), 10);
+            if (!isNaN(target) && target !== WT.page) { WT.page = target; loadWarrantyTickets(); }
             });
 
             // Sélection
             $(document).on('change', '.warrantyCheckbox', function() {
-               const id = String($(this).val());
-               if (this.checked) WT.selected.add(id); else WT.selected.delete(id);
-               updateSelectedCount();
+            const id = String($(this).val());
+            if (this.checked) WT.selected.add(id); else WT.selected.delete(id);
+            updateSelectedCount();
             });
             $(document).on('change', '#checkAll', function() {
             const checked = this.checked;
@@ -330,35 +354,79 @@ class PluginWarrantycheckConfig extends CommonDBTM
 
             // Suppression (CSRF)
             $(document).on('click', '#deleteSelectedBtn', function() {
-               if (WT.selected.size === 0) { alert("Aucun élément sélectionné."); return; }
-               if (!confirm(`Confirmer la suppression des ${WT.selected.size} éléments sélectionnés ?`)) return;
-               $.post(WARRANTY_DELETE_URL,
-                  { _glpi_csrf_token: GLPI_CSRF, ids: Array.from(WT.selected) },
-                  function() { WT.selected.clear(); loadWarrantyTickets(); }
-               ).fail(function(xhr){
-                  let body = xhr.responseText || '';
-                  const looksHtml = /^\s*</.test(body);
-                  let msg = `Erreur suppression ${xhr.status} ${xhr.statusText}`;
-                  if (!looksHtml && body) msg += `\n${body.substring(0, 500)}`;
-                  alert(msg); console.error(msg);
-               });
+            if (WT.selected.size === 0) { alert("Aucun élément sélectionné."); return; }
+            if (!confirm(`Confirmer la suppression des ${WT.selected.size} éléments sélectionnés ?`)) return;
+            $.post(WARRANTY_DELETE_URL,
+               { _glpi_csrf_token: GLPI_CSRF, ids: Array.from(WT.selected) },
+               function() { WT.selected.clear(); loadWarrantyTickets(); }
+            ).fail(function(xhr){
+               let body = xhr.responseText || '';
+               const looksHtml = /^\s*</.test(body);
+               let msg = `Erreur suppression ${xhr.status} ${xhr.statusText}`;
+               if (!looksHtml && body) msg += `\n${body.substring(0, 500)}`;
+               alert(msg); console.error(msg);
+            });
+            });
+
+            // EXPORT CSV via AJAX (blob) + overlay (si tu l'as ajouté)
+            function showExportLoader(show) {
+            $('#exportOverlay').css('display', show ? 'flex' : 'none');
+            $('#exportBtn').prop('disabled', !!show);
+            }
+            $(document).on('click', '#exportBtn', function() {
+            const params = { q: WT.q, prefix: WT.prefix, exact: WT.exact };
+            showExportLoader(true);
+            $.ajax({
+               url: WARRANTY_EXPORT_URL,
+               method: 'GET',
+               data: { ...params, _ts: Date.now() }, // anti-cache aussi
+               cache: false,
+               xhrFields: { responseType: 'blob' }
+            }).done(function(blob, status, xhr) {
+               const ct = (xhr.getResponseHeader('Content-Type') || '').toLowerCase();
+               if (ct.includes('application/json') || ct.includes('text/json')) {
+                  const reader = new FileReader();
+                  reader.onload = function() {
+                  try { const j = JSON.parse(reader.result); alert(j.message || 'Erreur export'); }
+                  catch(e) { alert('Erreur export (réponse JSON invalide).'); }
+                  showExportLoader(false);
+                  };
+                  reader.readAsText(blob);
+                  return;
+               }
+               let filename = 'warranty_tickets.csv';
+               const cd = xhr.getResponseHeader('Content-Disposition') || '';
+               const match = cd.match(/filename\*?=(?:UTF-8'')?"?([^\";]+)"?/i);
+               if (match && match[1]) filename = decodeURIComponent(match[1]).replace(/[/\\]/g,'_');
+               const url = window.URL.createObjectURL(blob);
+               const a = document.createElement('a');
+               a.href = url; a.download = filename;
+               document.body.appendChild(a); a.click(); a.remove();
+               window.URL.revokeObjectURL(url);
+               showExportLoader(false);
+            }).fail(function(xhr) {
+               let msg = `Erreur export ${xhr.status} ${xhr.statusText}`;
+               if (xhr.responseText) msg += `\n${xhr.responseText.substring(0, 500)}`;
+               alert(msg);
+               showExportLoader(false);
+            });
             });
 
             // Recherche (debounce 300ms)
             let debounceTimer = null;
             $(document).on('input', '#searchWarrantyInput', function() {
-               clearTimeout(debounceTimer);
-               const raw = $(this).val();
-               debounceTimer = setTimeout(() => {
-                  const {prefix, value, exact} = parseQuery(raw);
-                  WT.prefix = prefix; WT.q = value; WT.exact = exact; WT.page = 1;
-                  loadWarrantyTickets();
-               }, 300);
+            clearTimeout(debounceTimer);
+            const raw = $(this).val();
+            debounceTimer = setTimeout(() => {
+               const {prefix, value, exact} = parseQuery(raw);
+               WT.prefix = prefix; WT.q = value; WT.exact = exact; WT.page = 1;
+               loadWarrantyTickets();
+            }, 300);
             });
             </script>
 
             <?php
-            // Modal HTML
+            // Modal HTML (ajout du bouton Export + overlay caché)
             echo <<<HTML
             <div class="modal fade" id="customModal" tabindex="-1" aria-labelledby="AddGestionModalLabel" aria-hidden="true">
             <div class="modal-dialog modal-xl">
@@ -367,13 +435,17 @@ class PluginWarrantycheckConfig extends CommonDBTM
                   <h5 class="modal-title" id="AddGestionModalLabel">Gestion des numéros de série</h5>
                   <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                   </div>
-                  <div class="modal-body" style="overflow-x:auto;">
+                  <div class="modal-body" style="overflow-x:auto; position:relative;">
                   <div class="d-flex mb-2 gap-2">
                      <input type="text" id="searchWarrantyInput" class="form-control" placeholder="Rechercher… (id=123 | ticket=456 | sn=ABC | global)">
                      <button type="button" id="deleteSelectedBtn" class="btn btn-danger">
                         Supprimer la sélection (<span id="selectedCount">0</span>)
                      </button>
+                     <button type="button" id="exportBtn" class="btn btn-outline-secondary">
+                        Exporter CSV
+                     </button>
                   </div>
+
                   <table class="table table-striped">
                      <thead>
                         <tr>
@@ -386,6 +458,19 @@ class PluginWarrantycheckConfig extends CommonDBTM
                      <tbody id="warrantyTicketsBody"></tbody>
                   </table>
                   <nav><ul class="pagination justify-content-center" id="warrantyPagination"></ul></nav>
+
+                  <!-- Overlay export (centré, masqué par défaut) -->
+                  <div id="exportOverlay"
+                        style="display:none; position:absolute; inset:0; background:rgba(255,255,255,0.75); z-index:1060; align-items:center; justify-content:center;">
+                     <div class="d-flex align-items-center p-3 bg-white rounded shadow">
+                        <div class="spinner-border me-3" role="status" aria-hidden="true"></div>
+                        <div>
+                        <strong>Création du fichier CSV en cours…</strong><br>
+                        <small>Merci de patienter</small>
+                        </div>
+                     </div>
+                  </div>
+
                   </div>
                   <div class="modal-footer">
                   <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
