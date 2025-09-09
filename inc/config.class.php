@@ -123,6 +123,18 @@ class PluginWarrantycheckConfig extends CommonDBTM
          echo "</td>";
       echo "</tr>";
 
+      echo "<tr class='tab_bg_1'>"; // new
+         echo "<td>" . __("Filtre IIyama", "gestion") . "</td><td>";
+            echo Html::input('Filtre_IIyama', ['value' => $config->Filtre_IIyama(), 'size' => 80, 'style' => 'text-transform: uppercase;']);// bouton configuration du bas de page line 1
+         echo "</td>";
+      echo "</tr>";
+
+      echo "<tr class='tab_bg_1'>"; // new
+         echo "<td>" . __("Filtre Autres", "gestion") . "</td><td>";
+            echo Html::input('Filtre_Autres', ['value' => $config->Filtre_Autres(), 'size' => 80, 'style' => 'text-transform: uppercase;']);// bouton configuration du bas de page line 1
+         echo "</td>";
+      echo "</tr>";
+
       // facture, devis, bon de livraison, bon de commande
       echo "<tr class='tab_bg_1'>";
          echo "<td>" . __("Filtre Devis", "gestion") . "</td><td>";
@@ -201,155 +213,286 @@ class PluginWarrantycheckConfig extends CommonDBTM
          echo '</div>';
       echo "</td></tr>";
 
-      echo "<tr class='tab_bg_1'>";
+            echo "<tr class='tab_bg_1'>";
          echo "<td>" . __("Gestion des numéros de série", "gestion") . "</td><td>";
+            // URLs construites par GLPI (évite les chemins relatifs)
+            $WARRANTY_BASE   = Plugin::getWebDir('warrantycheck');
+            $WARRANTY_AJAX   = $WARRANTY_BASE . '/ajax/ajax_get_warranty_tickets.php';
+            $WARRANTY_DELETE = $WARRANTY_BASE . '/ajax/ajax_delete_warranty_ticket.php';
+            $WARRANTY_EXPORT = $WARRANTY_BASE . '/ajax/ajax_export_warranty_tickets.php'; // export
 
-         ?>
-         <button id="openModalButton" type="button" class="btn btn-primary">Voir les numéros de série</button>
+            // Jeton CSRF pour POST
+            $GLPI_CSRF = Session::getNewCSRFToken();
+            ?>
 
-         <script type="text/javascript">
+            <button id="openModalButton" type="button" class="btn btn-primary">Voir les numéros de série</button>
 
-            $('#openModalButton').on('click', function() {
-               $('#customModal').modal('show');
-               loadWarrantyTickets();
-            });
+            <script type="text/javascript">
+            const WARRANTY_AJAX_URL   = "<?= $WARRANTY_AJAX ?>";
+            const WARRANTY_DELETE_URL = "<?= $WARRANTY_DELETE ?>";
+            const WARRANTY_EXPORT_URL = "<?= $WARRANTY_EXPORT ?? '' ?>"; // peut être vide si pas d'export
+            const GLPI_CSRF           = "<?= $GLPI_CSRF ?>";
 
-         function loadWarrantyTickets() {
-            console.log("Chargement des tickets en cours...");
+            // Désactive globalement le cache jQuery pour les GET (belt & suspenders)
+            $.ajaxSetup({ cache: false });
+
+            let WT = {
+            page: 1,
+            pageSize: 50,
+            q: '',
+            prefix: '',
+            exact: 0,
+            selected: new Set()
+            };
+
+            function parseQuery(raw) {
+            let input = String(raw || '').toLowerCase().trim();
+            let prefix = '', value = input, exact = 0;
+            if (input.startsWith('id='))         { prefix='id';     value=input.replace('id=','').trim(); exact=1; }
+            else if (input.startsWith('ticket=')){ prefix='ticket'; value=input.replace('ticket=','').trim(); exact=1; }
+            else if (input.startsWith('sn='))    { prefix='sn';     value=input.replace('sn=','').trim();  exact=1; }
+            else if (input.startsWith('id:'))    { prefix='id';     value=input.replace('id:','').trim(); }
+            else if (input.startsWith('ticket:')){ prefix='ticket'; value=input.replace('ticket:','').trim(); }
+            else if (input.startsWith('sn:'))    { prefix='sn';     value=input.replace('sn:','').trim(); }
+            return {prefix, value, exact};
+            }
+
+            function loadWarrantyTickets() {
+            $('#warrantyTicketsBody').html('<tr><td colspan="4">Chargement…</td></tr>');
+
             $.ajax({
-               url: '../plugins/warrantycheck/ajax/ajax_get_warranty_tickets.php',
-               type: 'GET',
-               success: function(data) {
-                     console.log("Données reçues : ", data);
-                     $('#warrantyTicketsBody').html(data);
-               },
-               error: function(xhr) {
-                     console.error("Erreur Ajax : ", xhr.status, xhr.statusText);
+               url: WARRANTY_AJAX_URL,
+               method: 'GET',
+               dataType: 'json',
+               cache: false,                 // <-- No cache
+               data: {
+                  page: WT.page,
+                  pageSize: WT.pageSize,
+                  q: WT.q,
+                  prefix: WT.prefix,
+                  exact: WT.exact,
+                  _ts: Date.now()            // <-- anti-cache URL param
                }
+            }).done(function(resp){
+               // Si le backend renvoie {error:true}, on affiche un message lisible
+               if (resp && resp.error) {
+                  const dbg = resp.debug_html ? ("\n" + String(resp.debug_html).slice(0,500)) : "";
+                  alert("Erreur serveur: " + (resp.message || "inconnue") + dbg);
+                  $('#warrantyTicketsBody').html('<tr><td colspan="4">Erreur de chargement</td></tr>');
+                  return;
+               }
+               renderWarrantyRows(resp.rows || []);
+               renderPagination(resp.page, resp.pageSize, resp.total);
+               updateSelectedCount();
+               $('#checkAll').prop('checked', false);
+            }).fail(function(xhr){
+               let body = xhr.responseText || '';
+               const looksHtml = /^\s*</.test(body);
+               let msg = `Erreur Ajax ${xhr.status} ${xhr.statusText}`;
+               if (looksHtml) { msg += " — Réponse HTML (session expirée ? mauvais chemin ?)"; }
+               else { msg += `\n${body.substring(0, 500)}`; }
+               console.error(msg);
+               alert(msg);
+               $('#warrantyTicketsBody').html('<tr><td colspan="4">Erreur de chargement</td></tr>');
             });
-         }
-
-         $(document).on('change', '.warrantyCheckbox, #checkAll', function() {
-            if (this.id === 'checkAll') {
-               $('.warrantyCheckbox').prop('checked', this.checked);
-            }
-            updateSelectedCount();
-         });
-
-         function updateSelectedCount() {
-            let count = $('.warrantyCheckbox:checked').length;
-            $('#selectedCount').text(count);
-         }
-
-         $(document).on('click', '#deleteSelectedBtn', function() {
-            let selected = [];
-            $('.warrantyCheckbox:checked').each(function() {
-               selected.push($(this).val());
-            });
-
-            if (selected.length === 0) {
-               alert("Aucun élément sélectionné.");
-               return;
             }
 
-            if (confirm("Confirmer la suppression des "+selected.length+" éléments sélectionnés ?")) {
-               $.post('../plugins/warrantycheck/ajax/ajax_delete_warranty_ticket.php', { ids: selected }, function() {
-                     loadWarrantyTickets();
-                     $('#selectedCount').text(0);  // ← remise à zéro du compteur
-                     $('#checkAll').prop('checked', false);
+            function renderWarrantyRows(rows) {
+            let html = '';
+            if (!rows.length) {
+               html = '<tr><td colspan="4"><em>Aucun résultat</em></td></tr>';
+            } else {
+               rows.forEach(r => {
+                  const id   = r.id ?? '';
+                  const tick = r.tickets_id ?? '';
+                  const sn   = r.serial_number ?? '';
+                  const checked = WT.selected.has(String(id)) ? 'checked' : '';
+                  const safeSN = $('<div>').text(sn).html();
+                  html += `<tr>
+                  <td><input type="checkbox" class="warrantyCheckbox" value="${id}" ${checked}></td>
+                  <td>${id}</td>
+                  <td>${tick}</td>
+                  <td>${safeSN}</td>
+                  </tr>`;
                });
             }
-         });
-
-         $(document).on('input', '#searchWarrantyInput', function() {
-            let input = $(this).val().toLowerCase().trim();
-            let prefix = '';
-            let value = input;
-            let exact = false;
-
-            if (input.indexOf('id=') === 0) {
-               prefix = 'id';
-               value = input.replace('id=', '').trim();
-               exact = true;
-            } else if (input.indexOf('ticket=') === 0) {
-               prefix = 'ticket';
-               value = input.replace('ticket=', '').trim();
-               exact = true;
-            } else if (input.indexOf('sn=') === 0) {
-               prefix = 'sn';
-               value = input.replace('sn=', '').trim();
-               exact = true;
-            } else if (input.indexOf('id:') === 0) {
-               prefix = 'id';
-               value = input.replace('id:', '').trim();
-            } else if (input.indexOf('ticket:') === 0) {
-               prefix = 'ticket';
-               value = input.replace('ticket:', '').trim();
-            } else if (input.indexOf('sn:') === 0) {
-               prefix = 'sn';
-               value = input.replace('sn:', '').trim();
+            $('#warrantyTicketsBody').html(html);
             }
 
-            $("#warrantyTicketsBody tr").filter(function() {
-               let show = false;
+            function renderPagination(page, pageSize, total) {
+            const $p = $('#warrantyPagination');
+            const totalPages = Math.max(1, Math.ceil(total / pageSize));
+            if (totalPages <= 1) { $p.html(''); return; }
+            const pageBtn = (p, label, disabled=false, active=false) =>
+               `<li class="page-item ${disabled?'disabled':''} ${active?'active':''}">
+                  <a class="page-link" href="#" data-page="${p}">${label}</a>
+               </li>`;
+            let html = '';
+            html += pageBtn(page-1, '&laquo;', page===1);
+            const start = Math.max(1, page-2);
+            const end   = Math.min(totalPages, page+2);
+            if (start > 1) html += pageBtn(1, '1');
+            if (start > 2) html += `<li class="page-item disabled"><span class="page-link">…</span></li>`;
+            for (let p=start; p<=end; p++) html += pageBtn(p, String(p), false, p===page);
+            if (end < totalPages-1) html += `<li class="page-item disabled"><span class="page-link">…</span></li>`;
+            if (end < totalPages)   html += pageBtn(totalPages, String(totalPages));
+            html += pageBtn(page+1, '&raquo;', page===totalPages);
+            $p.html(html);
+            }
 
-               if (prefix === 'id') {
-                     let id = $(this).find('td:eq(1)').text().toLowerCase();
-                     show = exact ? (id === value) : (id.indexOf(value) > -1);
-               } else if (prefix === 'ticket') {
-                     let ticket = $(this).find('td:eq(2)').text().toLowerCase();
-                     show = exact ? (ticket === value) : (ticket.indexOf(value) > -1);
-               } else if (prefix === 'sn') {
-                     let serial = $(this).find('td:eq(3)').text().toLowerCase();
-                     show = exact ? (serial === value) : (serial.indexOf(value) > -1);
-               } else {
-                     // recherche globale si aucun préfixe
-                     show = $(this).text().toLowerCase().indexOf(value) > -1;
-               }
-
-               $(this).toggle(show);
+            // Ouverture modal
+            $(document).on('click', '#openModalButton', function() {
+            $('#customModal').modal('show');
+            WT.page = 1;
+            loadWarrantyTickets();
             });
-         });
-         </script>
 
-         <?php
+            // Pagination
+            $(document).on('click', '#warrantyPagination .page-link', function(e){
+            e.preventDefault();
+            const target = parseInt($(this).data('page'), 10);
+            if (!isNaN(target) && target !== WT.page) { WT.page = target; loadWarrantyTickets(); }
+            });
 
-         // Modal HTML
-         echo <<<HTML
+            // Sélection
+            $(document).on('change', '.warrantyCheckbox', function() {
+            const id = String($(this).val());
+            if (this.checked) WT.selected.add(id); else WT.selected.delete(id);
+            updateSelectedCount();
+            });
+            $(document).on('change', '#checkAll', function() {
+            const checked = this.checked;
+            $('.warrantyCheckbox').each(function() { $(this).prop('checked', checked).trigger('change'); });
+            });
+            function updateSelectedCount() { $('#selectedCount').text(WT.selected.size); }
+
+            // Suppression (CSRF)
+            $(document).on('click', '#deleteSelectedBtn', function() {
+            if (WT.selected.size === 0) { alert("Aucun élément sélectionné."); return; }
+            if (!confirm(`Confirmer la suppression des ${WT.selected.size} éléments sélectionnés ?`)) return;
+            $.post(WARRANTY_DELETE_URL,
+               { _glpi_csrf_token: GLPI_CSRF, ids: Array.from(WT.selected) },
+               function() { WT.selected.clear(); loadWarrantyTickets(); }
+            ).fail(function(xhr){
+               let body = xhr.responseText || '';
+               const looksHtml = /^\s*</.test(body);
+               let msg = `Erreur suppression ${xhr.status} ${xhr.statusText}`;
+               if (!looksHtml && body) msg += `\n${body.substring(0, 500)}`;
+               alert(msg); console.error(msg);
+            });
+            });
+
+            // EXPORT CSV via AJAX (blob) + overlay (si tu l'as ajouté)
+            function showExportLoader(show) {
+            $('#exportOverlay').css('display', show ? 'flex' : 'none');
+            $('#exportBtn').prop('disabled', !!show);
+            }
+            $(document).on('click', '#exportBtn', function() {
+            const params = { q: WT.q, prefix: WT.prefix, exact: WT.exact };
+            showExportLoader(true);
+            $.ajax({
+               url: WARRANTY_EXPORT_URL,
+               method: 'GET',
+               data: { ...params, _ts: Date.now() }, // anti-cache aussi
+               cache: false,
+               xhrFields: { responseType: 'blob' }
+            }).done(function(blob, status, xhr) {
+               const ct = (xhr.getResponseHeader('Content-Type') || '').toLowerCase();
+               if (ct.includes('application/json') || ct.includes('text/json')) {
+                  const reader = new FileReader();
+                  reader.onload = function() {
+                  try { const j = JSON.parse(reader.result); alert(j.message || 'Erreur export'); }
+                  catch(e) { alert('Erreur export (réponse JSON invalide).'); }
+                  showExportLoader(false);
+                  };
+                  reader.readAsText(blob);
+                  return;
+               }
+               let filename = 'warranty_tickets.csv';
+               const cd = xhr.getResponseHeader('Content-Disposition') || '';
+               const match = cd.match(/filename\*?=(?:UTF-8'')?"?([^\";]+)"?/i);
+               if (match && match[1]) filename = decodeURIComponent(match[1]).replace(/[/\\]/g,'_');
+               const url = window.URL.createObjectURL(blob);
+               const a = document.createElement('a');
+               a.href = url; a.download = filename;
+               document.body.appendChild(a); a.click(); a.remove();
+               window.URL.revokeObjectURL(url);
+               showExportLoader(false);
+            }).fail(function(xhr) {
+               let msg = `Erreur export ${xhr.status} ${xhr.statusText}`;
+               if (xhr.responseText) msg += `\n${xhr.responseText.substring(0, 500)}`;
+               alert(msg);
+               showExportLoader(false);
+            });
+            });
+
+            // Recherche (debounce 300ms)
+            let debounceTimer = null;
+            $(document).on('input', '#searchWarrantyInput', function() {
+            clearTimeout(debounceTimer);
+            const raw = $(this).val();
+            debounceTimer = setTimeout(() => {
+               const {prefix, value, exact} = parseQuery(raw);
+               WT.prefix = prefix; WT.q = value; WT.exact = exact; WT.page = 1;
+               loadWarrantyTickets();
+            }, 300);
+            });
+            </script>
+
+            <?php
+            // Modal HTML (ajout du bouton Export + overlay caché)
+            echo <<<HTML
             <div class="modal fade" id="customModal" tabindex="-1" aria-labelledby="AddGestionModalLabel" aria-hidden="true">
-               <div class="modal-dialog modal-xl"> <!-- agrandissement modal -->
-                  <div class="modal-content">
-                     <div class="modal-header">
-                        <h5 class="modal-title" id="AddGestionModalLabel">Gestion des numéros de série</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                     </div>
-                     <div class="modal-body" style="overflow-x: auto;"> <!-- scroll horizontal si besoin -->
-                        <div class="d-flex mb-2 gap-2">
-                           <input type="text" id="searchWarrantyInput" class="form-control" placeholder="Rechercher...">
-                           <button type="button" id="deleteSelectedBtn" class="btn btn-danger">Supprimer la sélection (<span id="selectedCount">0</span>)</button>
+            <div class="modal-dialog modal-xl">
+               <div class="modal-content">
+                  <div class="modal-header">
+                  <h5 class="modal-title" id="AddGestionModalLabel">Gestion des numéros de série</h5>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                  </div>
+                  <div class="modal-body" style="overflow-x:auto; position:relative;">
+                  <div class="d-flex mb-2 gap-2">
+                     <input type="text" id="searchWarrantyInput" class="form-control" placeholder="Rechercher… (id=123 | ticket=456 | sn=ABC | global)">
+                     <button type="button" id="deleteSelectedBtn" class="btn btn-danger">
+                        Supprimer la sélection (<span id="selectedCount">0</span>)
+                     </button>
+                     <button type="button" id="exportBtn" class="btn btn-outline-secondary">
+                        Exporter CSV
+                     </button>
+                  </div>
+
+                  <table class="table table-striped">
+                     <thead>
+                        <tr>
+                        <th><input type="checkbox" id="checkAll"></th>
+                        <th>ID</th>
+                        <th>Ticket ID</th>
+                        <th>Serial Number</th>
+                        </tr>
+                     </thead>
+                     <tbody id="warrantyTicketsBody"></tbody>
+                  </table>
+                  <nav><ul class="pagination justify-content-center" id="warrantyPagination"></ul></nav>
+
+                  <!-- Overlay export (centré, masqué par défaut) -->
+                  <div id="exportOverlay"
+                        style="display:none; position:absolute; inset:0; background:rgba(255,255,255,0.75); z-index:1060; align-items:center; justify-content:center;">
+                     <div class="d-flex align-items-center p-3 bg-white rounded shadow">
+                        <div class="spinner-border me-3" role="status" aria-hidden="true"></div>
+                        <div>
+                        <strong>Création du fichier CSV en cours…</strong><br>
+                        <small>Merci de patienter</small>
                         </div>
-                        <table class="table table-striped">
-                           <thead>
-                              <tr>
-                                 <th><input type="checkbox" id="checkAll"></th>
-                                 <th>ID</th>
-                                 <th>Ticket ID</th>
-                                 <th>Serial Number</th>
-                              </tr>
-                           </thead>
-                           <tbody id="warrantyTicketsBody">
-                              <!-- Données AJAX -->
-                           </tbody>
-                        </table>
                      </div>
-                     <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
-                     </div>
+                  </div>
+
+                  </div>
+                  <div class="modal-footer">
+                  <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
                   </div>
                </div>
             </div>
-         HTML;
-
+            </div>
+            HTML;
          echo "</td>";
       echo "</tr>";
 
@@ -389,6 +532,14 @@ class PluginWarrantycheckConfig extends CommonDBTM
    function Filtre_Terra()
    {
       return ($this->fields['Filtre_Terra']);
+   }
+   function Filtre_Autres() // new
+   {
+      return ($this->fields['Filtre_Autres']);
+   }
+   function Filtre_IIyama() // new
+   {
+      return ($this->fields['Filtre_IIyama']);
    }
    function Filtre_Devis()
    {
@@ -503,40 +654,61 @@ class PluginWarrantycheckConfig extends CommonDBTM
          ) ENGINE=InnoDB DEFAULT CHARSET={$default_charset} COLLATE={$default_collation} ROW_FORMAT=DYNAMIC;";
          $DB->doQuery($query) or die($DB->error());
          $config->add(['id' => 1,]);
-      }else{
-         if ($_SESSION['PLUGIN_WARRANTYCHECK_VERSION'] > '1.0.3'){
-            // Vérifier si les colonnes existent déjà
-            $columns = $DB->doQuery("SHOW COLUMNS FROM `$table`")->fetch_all(MYSQLI_ASSOC);
-   
-            // Liste des colonnes à vérifier
-            $required_columns = [
-               'related_elements',
-               'Filtre_Devis',
-               'Filtre_Facture',
-               'Filtre_BonDeLivraison',
-               'Filtre_BonDeCommande',
-               'whitelistuser_read',
-               'whitelistuser_delete',
-               'whitelistuser_update',
-               'prefix_blacklist',
-            ];
-   
-            // Liste pour les colonnes manquantes
-            $missing_columns = array_diff($required_columns, array_column($columns, 'Field'));
-   
-            if (!empty($missing_columns)) {
-               $query= "ALTER TABLE $table
-                  ADD COLUMN `whitelistuser_read` INT(10) NULL DEFAULT '1',
-                  ADD COLUMN `whitelistuser_delete` INT(10) NULL DEFAULT '0',
-                  ADD COLUMN `whitelistuser_update` INT(10) NULL DEFAULT '1',
-                  ADD COLUMN `prefix_blacklist` MEDIUMTEXT NULL DEFAULT 'KB,X8,0X,DE23,PRB,ERR,VER',
-                  ADD COLUMN `related_elements` INT(10) NULL DEFAULT '1',
-                  ADD COLUMN `Filtre_Devis` TEXT NULL DEFAULT 'DE',
-                  ADD COLUMN `Filtre_Facture` TEXT NULL DEFAULT 'FA',
-                  ADD COLUMN `Filtre_BonDeLivraison` TEXT NULL DEFAULT 'BL',
-                  ADD COLUMN `Filtre_BonDeCommande` TEXT NULL DEFAULT 'BC';";
-               $DB->doQuery($query) or die($DB->error());
-            }
+      }
+
+      if ($_SESSION['PLUGIN_WARRANTYCHECK_VERSION'] > '1.0.3'){
+         // Vérifier si les colonnes existent déjà
+         $columns = $DB->doQuery("SHOW COLUMNS FROM `$table`")->fetch_all(MYSQLI_ASSOC);
+
+         // Liste des colonnes à vérifier
+         $required_columns = [
+            'related_elements',
+            'Filtre_Devis',
+            'Filtre_Facture',
+            'Filtre_BonDeLivraison',
+            'Filtre_BonDeCommande',
+            'whitelistuser_read',
+            'whitelistuser_delete',
+            'whitelistuser_update',
+            'prefix_blacklist',
+         ];
+
+         // Liste pour les colonnes manquantes
+         $missing_columns = array_diff($required_columns, array_column($columns, 'Field'));
+
+         if (!empty($missing_columns)) {
+            $query= "ALTER TABLE $table
+               ADD COLUMN `whitelistuser_read` INT(10) NULL DEFAULT '1',
+               ADD COLUMN `whitelistuser_delete` INT(10) NULL DEFAULT '0',
+               ADD COLUMN `whitelistuser_update` INT(10) NULL DEFAULT '1',
+               ADD COLUMN `prefix_blacklist` MEDIUMTEXT NULL DEFAULT 'KB,X8,0X,DE23,PRB,ERR,VER',
+               ADD COLUMN `related_elements` INT(10) NULL DEFAULT '1',
+               ADD COLUMN `Filtre_Devis` TEXT NULL DEFAULT 'DE',
+               ADD COLUMN `Filtre_Facture` TEXT NULL DEFAULT 'FA',
+               ADD COLUMN `Filtre_BonDeLivraison` TEXT NULL DEFAULT 'BL',
+               ADD COLUMN `Filtre_BonDeCommande` TEXT NULL DEFAULT 'BC';";
+            $DB->doQuery($query) or die($DB->error());
+         }
+      }
+      
+      if ($_SESSION['PLUGIN_WARRANTYCHECK_VERSION'] > '1.0.8'){ // new
+         // Vérifier si les colonnes existent déjà
+         $columns = $DB->doQuery("SHOW COLUMNS FROM `$table`")->fetch_all(MYSQLI_ASSOC);
+
+         // Liste des colonnes à vérifier
+         $required_columns = [
+            'Filtre_IIyama',
+            'Filtre_Autres',
+         ];
+
+         // Liste pour les colonnes manquantes
+         $missing_columns = array_diff($required_columns, array_column($columns, 'Field'));
+
+         if (!empty($missing_columns)) {
+            $query= "ALTER TABLE $table
+               ADD COLUMN `Filtre_IIyama` TEXT NULL,
+               ADD COLUMN `Filtre_Autres` TEXT NULL";
+            $DB->doQuery($query) or die($DB->error());
          }
       }
    }

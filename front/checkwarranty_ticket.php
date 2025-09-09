@@ -6,194 +6,370 @@ if (!defined('GLPI_ROOT')) {
     die("Sorry. You can't access directly to this file");
 }
 
-global $DB, $CFG_GLPI;
-
 ob_clean(); // Vide tout ce qui a pu être envoyé avant
 
-function isDateDisguisedAsSerial(string $word): bool {
-    $word = strtoupper(trim($word));
+/* ======================================================================
+   ===================   HELPERS + EXTRACTEUR ULTRA   ====================
+   ====================================================================== */
 
-    // Trop court ou trop long => peu probable que ce soit une date
-    if (strlen($word) < 6 || strlen($word) > 12) return false;
-
-    // Liste complète de mois avec toutes variantes FR/EN
-    $month_patterns = [
-        'JAN', 'JANV', 'JANVI', 'JANVIER',
-        'FEB', 'FEV', 'FEVR', 'FEVRIER', 'FEBR', 'FEBRUARY',
-        'MAR', 'MARS', 'MARCH',
-        'AVR', 'AVRI', 'AVRIL',
-        'APR', 'APRI', 'APRIL',
-        'MAI', 'MAY',
-        'JUN', 'JUIN', 'JUNE',
-        'JUL', 'JUIL', 'JUILLET', 'JULY',
-        'AOU', 'AOUT', 'AUG', 'AUGU', 'AUGUST',
-        'SEP', 'SEPT', 'SEPTEM', 'SEPTEMBRE', 'SEPTEMBER',
-        'OCT', 'OCTO', 'OCTOBRE', 'OCTOBER',
-        'NOV', 'NOVE', 'NOVEM', 'NOVEMBRE', 'NOVEMBER',
-        'DEC', 'DECE', 'DECEM', 'DECEMB', 'DECEMBRE', 'DECEMBER'
-    ];
-
-    foreach ($month_patterns as $prefix) {
-        // Vérifie : préfixe + exactement 4 chiffres (année), ou 2 chiffres (abrégé)
-        if (preg_match('/^' . $prefix . '\d{2,4}$/', $word)) {
-            return true;
-        }
-
-        // Bonus : cas tordus genre "SEPTEMB2025" (trop long, mais on détecte)
-        if (strpos($word, $prefix) === 0 && preg_match('/[A-Z]*\d{4}$/', $word)) {
-            return true;
-        }
+function _cfg_csv_to_array(?string $csv): array {
+    if (!is_string($csv) || $csv === '') return [];
+    $parts = preg_split('/[,\;\s]+/u', $csv, -1, PREG_SPLIT_NO_EMPTY);
+    $out = [];
+    foreach ($parts as $p) {
+        $p = trim($p);
+        if ($p !== '') $out[] = $p;
     }
+    return $out;
+}
 
-    // Cas spéciaux : date inversée, genre 2023AUG ou 2023SEPT
-    foreach ($month_patterns as $suffix) {
-        if (preg_match('/^\d{4}' . $suffix . '$/', $word)) {
-            return true;
-        }
+function normalizeTextUltra(string $text): string {
+    $text = html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    $text = html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
+    $text = preg_replace('#<(script|style|iframe|object|embed)[^>]*>.*?</\1>#is', ' ', $text);
+    $text = preg_replace('#<(img|svg|meta|link|iframe|noscript)[^>]*?>#is', ' ', $text);
+    $text = preg_replace('/\s+\w+\s*=\s*(?:"[^"]*"|\'[^\']*\'|[^\s>]+)/', ' ', $text);
+    $text = preg_replace('#<\s*br\s*/?>#i', ' ', $text);
+
+    $text = strip_tags($text);
+    $text = preg_replace('/[^\PC\s]/u', ' ', $text);
+    $text = preg_replace('/[\r\n\t]+/u', ' ', $text);
+    $text = preg_replace('/\s{2,}/u', ' ', $text);
+
+    return trim($text);
+}
+
+function hasAny(string $haystack, array $needles): bool {
+    foreach ($needles as $n) {
+        if ($n === '') continue;
+        if (mb_stripos($haystack, $n) !== false) return true;
     }
-
     return false;
 }
 
+function isDateish(string $v): bool {
+    $v = strtoupper($v);
+    if (preg_match('/^\d{4}[01]\d[0-3]\d$/', $v)) return true;
+    if (preg_match('/^[0-3]?\d[.\-\/][01]?\d[.\-\/]\d{2,4}$/', $v)) return true;
+    if (preg_match('/^\d{4,6}H\d{2}$/', $v)) return true;
+    $mois = 'JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|SEPT|OCT|NOV|DEC|JANV|FEV|FÉV|MARS|AVR|MAI|JUIN|JUIL|AOUT|AOÛT|SEPTEM|OCTOB|NOVEM|DECEM';
+    if (preg_match('/\b(' . $mois . ')\b/u', $v)) return true;
+    return false;
+}
+
+function genericStrongShape(string $v): bool {
+    $L = strlen($v);
+    if ($L < 6 || $L > 20) return false;
+    if (!preg_match('/[A-Z]/', $v)) return false;
+    if (!preg_match('/\d/',   $v)) return false;
+    return true;
+}
+
+function looksLikeWordy(string $v): bool {
+    return (bool)preg_match('/^[A-Z]{6,}$/', $v);
+}
+
+function isLikelyHPPartNumber(string $v): bool {
+    if (preg_match('/^[A-Z0-9]{5}[A-Z]{2}$/', $v)) return true;
+    if (preg_match('/^[A-Z0-9]{5}[A-Z]{2}#\w{2,3}$/', $v)) return true;
+    return false;
+}
+
+function isDellServiceTag(string $v): bool {
+    if (!preg_match('/^[A-HJ-NPR-Z0-9]{7}$/', $v)) return false;
+    if (!preg_match('/\d/', $v) || !preg_match('/[A-Z]/', $v)) return false;
+    $esc = base_convert($v, 36, 10);
+    if ($esc === null || $esc === '' || !ctype_digit($esc)) return false;
+    $len = strlen($esc);
+    return ($len >= 10 && $len <= 12);
+}
+
+function isHPSerialWithPrefixes(string $v, array $hpPrefixes): bool {
+    $v = strtoupper($v);
+    if (!preg_match('/^[A-Z0-9]{9,10}$/', $v)) return false;    // HP = 9 ou 10
+    foreach ($hpPrefixes as $p) {
+        $p = strtoupper($p);
+        if ($p !== '' && strncmp($v, $p, strlen($p)) === 0) return true;
+    }
+    return false;
+}
+
+function isLenovoSerialWithPrefixes(string $v, array $lvPrefixes): bool {
+    $v = strtoupper($v);
+    if (!preg_match('/^[A-Z0-9]{7,10}$/', $v)) return false;    // Lenovo ~7–10
+    foreach ($lvPrefixes as $p) {
+        $p = strtoupper($p);
+        if ($p !== '' && strncmp($v, $p, strlen($p)) === 0) return true;
+    }
+    return false;
+}
+
+function isDynabookSerialWithPrefixes(string $v, array $dbPrefixes): bool {
+    $v = strtoupper($v);
+    if (!preg_match('/^[A-Z0-9]{8,10}$/', $v)) return false;
+    foreach ($dbPrefixes as $p) {
+        $p = strtoupper($p);
+        if ($p !== '' && strncmp($v, $p, strlen($p)) === 0) return true;
+    }
+    return false;
+}
+
+function isTerraSerialWithPrefixes(string $v, array $terraPrefixes): bool {
+    $v = strtoupper($v);
+    if (!preg_match('/^[A-Z0-9]{7,12}$/', $v)) return false;
+    foreach ($terraPrefixes as $p) {
+        $p = strtoupper($p);
+        if ($p !== '' && strncmp($v, $p, strlen($p)) === 0) return true;
+    }
+    return false;
+}
+
+function isOtherWhitelisted(string $v, array $otherPrefixes): bool {
+    $v = strtoupper($v);
+    foreach ($otherPrefixes as $p) {
+        $p = strtoupper($p);
+        if ($p !== '' && strncmp($v, $p, strlen($p)) === 0) return true;
+    }
+    return false;
+}
+
+function isIiyamaNumeric(string $v, array $iiyamaPrefixes): bool {
+    if (!preg_match('/^\d{13}$/', $v)) return false;
+    foreach ($iiyamaPrefixes as $p) {
+        $p = preg_replace('/\D/', '', $p);
+        if ($p !== '' && strncmp($v, $p, strlen($p)) === 0) return true;
+    }
+    return false;
+}
+
+function startsWithAny(string $hay, array $prefixes): bool {
+    $hay = strtoupper($hay);
+    foreach ($prefixes as $p) {
+        $p = strtoupper(trim($p));
+        if ($p === '') continue;
+        if (strncmp($hay, $p, strlen($p)) === 0) return true;
+    }
+    return false;
+}
+
+function scanTokens(string $text): array {
+    $tokens = preg_split('/[^A-Z0-9\-]+/i', $text);
+    $out = [];
+    foreach ($tokens as $t) {
+        $t = strtoupper(trim($t));
+        if ($t === '') continue;
+        if (strlen($t) < 6 || strlen($t) > 20) continue;
+        $out[] = $t;
+    }
+    return $out;
+}
+
+/* ===== Ajout : déduction du fabricant pour l’insertion DB (sans API) ===== */
+function guessFabricantFromSerial(string $serial, PluginWarrantycheckConfig $config): ?string {
+    $s = strtoupper(preg_replace('/[^A-Z0-9]/', '', $serial));
+
+    // Préfixes issus de la BDD
+    $hpPrefixes      = array_map('strtoupper', _cfg_csv_to_array((string)$config->Filtre_HP()));
+    $lenovoPrefixes  = array_map('strtoupper', _cfg_csv_to_array((string)$config->Filtre_Lenovo()));
+    $dellPrefixes    = array_map('strtoupper', _cfg_csv_to_array((string)$config->Filtre_Dell()));
+    $dynabookPref    = array_map('strtoupper', _cfg_csv_to_array((string)$config->Filtre_Dynabook()));
+    $terraPref       = array_map('strtoupper', _cfg_csv_to_array((string)$config->Filtre_Terra()));
+    $iiyamaPref      = array_map('trim',       _cfg_csv_to_array((string)($config->Filtre_IIyama() ?? '')));
+    $otherPref       = array_map('strtoupper', _cfg_csv_to_array((string)($config->Filtre_Autres() ?? '')));
+
+    if (empty($iiyamaPref)) $iiyamaPref = ['1188','1249','1251'];
+
+    // Règles
+    if (isDellServiceTag($s) || startsWithAny($s, $dellPrefixes))             return 'Dell';
+    if (isHPSerialWithPrefixes($s, $hpPrefixes))                               return 'HP';
+    if (isLenovoSerialWithPrefixes($s, $lenovoPrefixes))                       return 'Lenovo';
+    if (isDynabookSerialWithPrefixes($s, $dynabookPref))                       return 'Dynabook';
+    if (isTerraSerialWithPrefixes($s, $terraPref))                             return 'Terra';
+    if (ctype_digit($s) && strlen($s) === 13 && isIiyamaNumeric($s, $iiyamaPref)) return 'IIYAMA';
+    if (isOtherWhitelisted($s, $otherPref) && genericStrongShape($s))          return 'Autres';
+
+    return null;
+}
+
+/* =====================  EXTRACTEUR PRINCIPAL  ===================== */
+
 function findSerialNumbers(string $text): array {
-    global $DB, $CFG_GLPI;
+    $norm = normalizeTextUltra($text);
+
     $config = new PluginWarrantycheckConfig();
 
-    // ✅ Blacklist enrichie (à stocker dans un champ ou fichier si besoin)
-    $blacklist_row = $config->blacklist();
-    $dynamic_blacklist = array_flip(array_filter(array_map('trim', explode(',', strtolower($blacklist_row)))));// 🧠 Conversion en blacklist dynamique
+    $blacklist_map = [];
+    $blacklist_row = (string)$config->blacklist();
+    foreach (_cfg_csv_to_array($blacklist_row) as $w) {
+        $w = strtolower(trim($w));
+        if ($w !== '') $blacklist_map[$w] = true;
+    }
 
-    // ✅ Liste des préfixes à exclure
-    $prefix_blacklist_row = $config->prefix_blacklist();
-    $prefix_blacklist = array_filter(array_map('trim', explode(',', strtoupper($prefix_blacklist_row))));
+    $prefix_blacklist = array_map('strtoupper', _cfg_csv_to_array((string)$config->prefix_blacklist()));
 
-    // ✅ Liste des préfixes à inclure
-    $raw_values = array_filter([
-        $config->Filtre_HP(),
-        $config->Filtre_Lenovo(),
-        $config->Filtre_Dell(),
-        $config->Filtre_Dynabook(),
-        $config->Filtre_Terra()
-    ]);
+    $hpPrefixes      = array_map('strtoupper', _cfg_csv_to_array((string)$config->Filtre_HP()));
+    $lenovoPrefixes  = array_map('strtoupper', _cfg_csv_to_array((string)$config->Filtre_Lenovo()));
+    $dellPrefixes    = array_map('strtoupper', _cfg_csv_to_array((string)$config->Filtre_Dell()));
+    $dynabookPref    = array_map('strtoupper', _cfg_csv_to_array((string)$config->Filtre_Dynabook()));
+    $terraPref       = array_map('strtoupper', _cfg_csv_to_array((string)$config->Filtre_Terra()));
+    $iiyamaPref      = array_map('trim',       _cfg_csv_to_array((string)($config->Filtre_IIyama() ?? '')));
+    $otherPref       = array_map('strtoupper', _cfg_csv_to_array((string)($config->Filtre_Autres() ?? '')));
 
-    $prefix_whitelist = [];
-    foreach ($raw_values as $chunk) {
-        foreach (explode(',', $chunk) as $prefix) {
-            $trimmed = trim($prefix);
-            if ($trimmed !== '') {
-                $prefix_whitelist[] = $trimmed;
+    if (empty($iiyamaPref)) {
+        $iiyamaPref = ['1188','1249','1251'];
+    }
+
+    $BLpref = array_map('strtoupper', _cfg_csv_to_array((string)$config->Filtre_BonDeLivraison()));
+    $BCpref = array_map('strtoupper', _cfg_csv_to_array((string)$config->Filtre_BonDeCommande()));
+    $FApref = array_map('strtoupper', _cfg_csv_to_array((string)$config->Filtre_Facture()));
+    $DEpref = array_map('strtoupper', _cfg_csv_to_array((string)$config->Filtre_Devis()));
+
+    $hasDell   = hasAny($norm, ['dell','alienware']);
+    $hasIiyama = hasAny($norm, ['iiyama']);
+
+    // === Libellés forts : si présent → on prend d’office (sauf blacklist mot) ===
+    $labelCandidates = [];
+    if (preg_match_all('/(?:num[ée]ro\s*de\s*s[ée]rie|n[\s°o]*\s*de\s*s[ée]rie|no\s*de\s*s[ée]rie|serial(?:\s*number)?|s\/?n|sn)\s*(?:[:#\-\/]*\s*)([A-Z0-9\-]{6,20})/iu', $norm, $m)) {
+        foreach ($m[1] as $raw) {
+            $v = strtoupper(trim($raw));
+            if ($v === '') continue;
+            if (isset($blacklist_map[strtolower($v)])) continue;
+
+            if (ctype_digit($v) && strlen($v) === 13) { $labelCandidates[] = $v; continue; }
+            if (isDellServiceTag($v))                { $labelCandidates[] = $v; continue; }
+            if (isHPSerialWithPrefixes($v, $hpPrefixes))         { $labelCandidates[] = $v; continue; }
+            if (isLenovoSerialWithPrefixes($v, $lenovoPrefixes)) { $labelCandidates[] = $v; continue; }
+            if (isDynabookSerialWithPrefixes($v, $dynabookPref)) { $labelCandidates[] = $v; continue; }
+            if (isTerraSerialWithPrefixes($v, $terraPref))       { $labelCandidates[] = $v; continue; }
+            if (isOtherWhitelisted($v, $otherPref) && genericStrongShape($v)) { $labelCandidates[] = $v; continue; }
+
+            if (genericStrongShape($v)) { $labelCandidates[] = $v; continue; }
+        }
+    }
+    $labelSet = [];
+    foreach ($labelCandidates as $lc) { $labelSet[strtoupper($lc)] = true; }
+
+    // === Scan global des tokens ===
+    $tokens      = scanTokens($norm);
+    $docTokens   = [];
+    $snTokens    = [];
+    $dellBucket  = [];
+
+    foreach ($tokens as $t) {
+        $T = $t;
+
+        if (ctype_digit($T) && isIiyamaNumeric($T, $iiyamaPref)) {
+            $snTokens[] = $T;
+            continue;
+        }
+
+        if (isset($blacklist_map[strtolower($T)])) continue;
+        if (isDateish($T))                          continue;
+        if (isLikelyHPPartNumber($T))               continue;
+        if (looksLikeWordy($T))                     continue;
+
+        $banned = false;
+        foreach ($prefix_blacklist as $pb) {
+            if ($pb !== '' && strncmp($T, $pb, strlen($pb)) === 0) { $banned = true; break; }
+        }
+        if ($banned) continue;
+
+        if (preg_match('/^[A-Z]{2}\d{4,}$/', $T)) {
+            if (startsWithAny($T, $BLpref) || startsWithAny($T, $BCpref) ||
+                startsWithAny($T, $FApref) || startsWithAny($T, $DEpref)) {
+                $docTokens[] = $T;
+                continue;
             }
+        }
+
+        if (strlen($T) === 7 && preg_match('/^[A-HJ-NPR-Z0-9]{7}$/', $T) && isDellServiceTag($T)) {
+            $dellBucket[$T] = true;
+            continue;
+        }
+
+        if (isHPSerialWithPrefixes($T, $hpPrefixes))         { $snTokens[] = $T; continue; }
+        if (isLenovoSerialWithPrefixes($T, $lenovoPrefixes)) { $snTokens[] = $T; continue; }
+        if (isDynabookSerialWithPrefixes($T, $dynabookPref)) { $snTokens[] = $T; continue; }
+        if (isTerraSerialWithPrefixes($T, $terraPref))       { $snTokens[] = $T; continue; }
+
+        if (isOtherWhitelisted($T, $otherPref) && genericStrongShape($T)) {
+            $snTokens[] = $T; continue;
         }
     }
 
-    // Liste des attributs à supprimer
-    $attributes = ['src', 'style', 'onclick', 'onerror', 'onload', 'onmouseover', 'onfocus', 'onblur', 'iframe', 'object', 'embed', 'link', 'meta', 'noscript', 'img', 'svg', 'script'];
-
-    foreach ($attributes as $attr) {
-        $text = preg_replace(
-            '/\s*\b' . preg_quote($attr, '/') . '\s*=\s*(?:(["\']).*?\1|[^\s>]+)/i',
-            '',
-            $text
-        );
+    if ($hasDell || count($dellBucket) >= 2) {
+        foreach (array_keys($dellBucket) as $d) $snTokens[] = $d;
     }
 
-    $text = preg_replace([
-        '#<(script|style|iframe|object|embed)[^>]*>.*?</\1>#is',
-        '#<(img|svg|meta|link|iframe|noscript)[^>]*?>#is',
-        '#<img\b[^>]*>#i',
-        '/<br\s*\/?>/i',
-        '/<\/?(p|div|h\d|strong|span|em|b|i|u)>/i',
-        '/\s+/', '/\s*([.,;:!?()])\s*/', '/\s+/', '/\s*([.,;:!?()])\s*/'
-    ], [' ', ' ', '', ' ', ' ', ' ', '$1 ', ' ', '$1 '], strip_tags($text));    
+    $snTokens = array_merge($snTokens, $labelCandidates);
 
-    // 🧼 Nettoyage des entités HTML
-    $text = html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');// Suppression des entités HTML
-    $text = trim($text);// Suppression des espaces en début et fin de chaîne
-    $text = mb_convert_encoding($text, 'UTF-8', 'UTF-8');// Suppression des entités HTML
+    $docTokens = array_values(array_unique($docTokens));
+    $snTokens  = array_values(array_unique($snTokens));
 
-    // 🔠 Séparation des mots
-    $words = preg_split('/[^A-Z0-9\-]+/i', $text);
-    $results = [];
+    $snTokens = array_values(array_filter($snTokens, function($v) use ($prefix_blacklist, $blacklist_map, $iiyamaPref, $hasIiyama, $labelSet) {
+        $V = strtoupper($v);
 
-    // 🧠 Indices sémantiques
-    $hints = ['numéro de série', 'numero de serie', 'n° de série', 'serial', 'serial number', 's/n', 'sn', 'seriennummer', 'N/S', 'S/N', 'SN' , 'NUMERO DE SERIE', 'sérial number'];
-    $soft_hints = ['et', 'ainsi que', 'plus', 'also', 'and', 'auch'];
+        if (isset($blacklist_map[strtolower($V)])) return false;
 
-    foreach ($words as $i => $word) {
-        $word = strtoupper(trim($word));
-        $word_lc = strtolower($word);
-
-        // 🛑 Règles d’exclusion
-        if (strlen($word) < 6 || strlen($word) > 20) continue;
-        if (isset($dynamic_blacklist[$word_lc])) continue;
-
-        // ❌ Exclusion par préfixe
-        foreach ($prefix_blacklist as $prefix) {
-            if (strpos($word, $prefix) === 0) continue 2;
-        }
-
-        if (!preg_match('/[A-Z]/', $word) || !preg_match('/\d/', $word)) continue;
-        if (substr_count($word, '-') >= 2) continue;
-        if (preg_match('/^\d{4,6}H\d{2}$/', $word)) continue;
-        if (preg_match('/^\d{6,}$/', $word)) continue;
-        if (preg_match('/^[A-Z]{6,}$/', $word)) continue;
-
-        // 🔍 Contexte autour
-        $score = 0;
-        $context = implode(' ', array_slice($words, max(0, $i - 5), 10));
-
-        foreach ($hints as $hint) {
-            if (stripos($context, $hint) !== false) {
-                $score += 100;
-                break;
+        if (ctype_digit($V) && strlen($V) === 13) {
+            if (isIiyamaNumeric($V, $iiyamaPref) || $hasIiyama || isset($labelSet[$V])) {
+                return true;
             }
-        }
-        foreach ($soft_hints as $soft) {
-            if (stripos($context, $soft) !== false) {
-                $score += 25;
-                break;
-            }
+            return false;
         }
 
-        // 🎯 Bonus par forme
-        if (preg_match('/^[A-Z]{2,5}\d{4,10}$/', $word)) $score += 25;
-        if (preg_match('/^\d{4,8}[A-Z]{1,4}$/', $word)) $score += 25;
-        if (preg_match('/^[A-Z0-9\-]{7,14}$/', $word)) $score += 15;
-        if (preg_match('/^[A-Z0-9]{6,}$/', $word)) $score += 5;
-        if (strpos($word, '-') !== false) $score += 5;
-        if ($word === strtoupper($word)) $score += 5;
-
-        // ✅ Bonus si préfixe référencé
-        foreach ($prefix_whitelist as $prefix) {
-            if (strpos($word, $prefix) === 0) {
-                $score += 30;
-                break;
-            }
+        foreach ($prefix_blacklist as $pb) {
+            if ($pb !== '' && strncmp($V, $pb, strlen($pb)) === 0) return false;
         }
 
-        // IA : rattrapage si motif probable
-        if ($score < 20 && preg_match('/^[A-Z0-9\-]{7,14}$/', $word)) {
-            $score = 20;
-        }
+        if (looksLikeWordy($V)) return false;
+        if (isDateish($V)) return false;
 
-        // Vocabulaire de mois pour détection date déguisée (FR/EN)
-        if (isDateDisguisedAsSerial($word)) {
-            $score = -999;
-        }
+        if (ctype_digit($V) && strlen($V) >= 7 && !isset($labelSet[$V])) return false;
 
-        // Pénalité si ressemble à un nom de machine ou patch
-        if (preg_match('/^(EXCH|SRVDC|SRV|DC|SVR)[A-Z0-9]*$/i', $word)) {
-            $score -= 100;
-        }
+        if (!genericStrongShape($V)) return false;
 
-        if ($score >= 20) {
-            $results[$word] = $score;
-        }
-    }
+        return true;
+    }));
 
-    arsort($results);
-    return array_keys($results);
+    return array_merge($docTokens, $snTokens);
 }
+
+/* =====================  TEXTE DU TICKET (pour as_json)  ===================== */
+
+function getTicketTextUltra(int $ticketId): string {
+    global $DB;
+    $ticketId = (int)$ticketId;
+
+    $parts = [];
+
+    $res = $DB->doQuery("SELECT name, content FROM glpi_tickets WHERE id = $ticketId");
+    if ($res && $row = $DB->fetchassoc($res)) {
+        $parts[] = (string)($row['name'] ?? '');
+        $parts[] = (string)($row['content'] ?? '');
+    }
+
+    $resF = $DB->doQuery("
+        SELECT content
+        FROM glpi_itilfollowups
+        WHERE items_id = $ticketId AND itemtype = 'Ticket'
+        ORDER BY id DESC
+        LIMIT 50
+    ");
+    if ($resF) {
+        while ($fr = $DB->fetchassoc($resF)) {
+            $parts[] = (string)($fr['content'] ?? '');
+        }
+    }
+
+    $text = implode("\n\n", array_filter($parts, fn($s)=> is_string($s) && trim($s) !== ''));
+    return $text;
+}
+
+/* ======================================================================
+   ========================  TON FLUX EXISTANT  =========================
+   ====================================================================== */
 
 $Ticket_id = (int)($_GET['ticket_id'] ?? 0);
 
@@ -226,49 +402,53 @@ while ($row = $DB->fetchassoc($result)) {
    }
 }
 
-// Appel de notre détection IA
+// Détection
 $liste = findSerialNumbers($all_text);
 $liste = array_map(function($s) {
-    return preg_replace('/[^A-Za-z0-9]/', '', $s); // ne garde que lettres et chiffres
+    return preg_replace('/[^A-Za-z0-9]/', '', $s);
 }, $liste);
 
 $resultats = [];
-$warnings  = [];     
+$warnings  = [];
+
 require_once PLUGIN_WARRANTYCHECK_DIR . '/front/warranty_functions.php';
 $config = new PluginWarrantycheckConfig();
 $userid = Session::getLoginUserID();
 $result = $DB->doQuery("SELECT * FROM `glpi_plugin_warrantycheck_preferences` WHERE users_id = $userid")->fetch_object();
 $statuswarranty = $result->statuswarranty;
-$max = $result->maxserial; // Exemple : l'utilisateur définit la limite à 20
-$viewdoc = $result->viewdoc; // Exemple : l'utilisateur définit la limite à 20
+$max = $result->maxserial;
+$viewdoc = $result->viewdoc;
+
+$BonLivraisonPrefixes = $config->Filtre_BonDeLivraison() ? _cfg_csv_to_array($config->Filtre_BonDeLivraison()) : [];
+$DevisPrefixes        = $config->Filtre_Devis() ? _cfg_csv_to_array($config->Filtre_Devis()) : [];
+$FacturePrefixes      = $config->Filtre_Facture() ? _cfg_csv_to_array($config->Filtre_Facture()) : [];
+$BonCommadePrefixes   = $config->Filtre_BonDeCommande() ? _cfg_csv_to_array($config->Filtre_BonDeCommande()) : [];
+
+$brandPrefixes = [
+    'Bon de commande : '  => $BonCommadePrefixes,
+    'Bon de livraison : ' => $BonLivraisonPrefixes,
+    'Facture : '          => $FacturePrefixes,
+    'Devis : '            => $DevisPrefixes,
+];
 
 foreach ($liste as $serial) {
-
-    $BonLivraisonPrefixes = $config->Filtre_BonDeLivraison() ? explode(',', $config->Filtre_BonDeLivraison()) : [];
-    $DevisPrefixes = $config->Filtre_Devis() ? explode(',', $config->Filtre_Devis()) : [];
-    $FacturePrefixes = $config->Filtre_Facture() ? explode(',', $config->Filtre_Facture()) : [];
-    $BonCommadePrefixes = $config->Filtre_BonDeCommande() ? explode(',', $config->Filtre_BonDeCommande()) : [];
-
-    // Tableau des préfixes associés à chaque constructeur
-    $brandPrefixes = [
-        'Bon de commande : '  => $BonCommadePrefixes,
-        'Bon de livraison : ' => $BonLivraisonPrefixes,
-        'Facture : '          => $FacturePrefixes,
-        'Devis : '            => $DevisPrefixes,
-    ];
 
     $found = false;
     $nodoc = 1;
     $nodocconf = 1;
     $model = null;
+    $label = '';
 
-    foreach ($brandPrefixes as $label => $prefixes) {
+    // Docs (BC/BL/FA/DE)
+    foreach ($brandPrefixes as $lab => $prefixes) {
         foreach ($prefixes as $prefix) {
-            if (stripos($serial, trim($prefix)) === 0) {
+            $prefix = trim($prefix);
+            if ($prefix !== '' && stripos($serial, $prefix) === 0) {
                 $found = true;
-                if($viewdoc == 0) $nodoc = 0; // On a trouvé un numéro de série qui correspond à un préfixe
+                $label = $lab;
+                if($viewdoc == 0) $nodoc = 0;
                 if($config->related_elements() == 0) $nodocconf = 0;
-                break 2; // On sort dès qu'on trouve
+                break 2;
             }
         }
     }
@@ -315,7 +495,6 @@ foreach ($liste as $serial) {
                             ];
                         }
                     }
-                    
                 }
             }
         }else{
@@ -323,15 +502,24 @@ foreach ($liste as $serial) {
                 if ($nodoc == 1) {
                     $resultat = ['serial' => $serial];
                 }
-        
+
                 if (!$found) {
                     if ($nodoc == 1) {
                         $resultat['info'] = 'Numéro de série : ';
                     }
-                    insertSurveyData([
+
+                    // ====== MODIF demandée : tenter d’ajouter 'fabricant' si préfixe correspond ======
+                    $fabricant_guess = guessFabricantFromSerial($serial, $config);
+                    $payload = [
                         'tickets_id'    => $Ticket_id,
                         'serial_number' => $serial,
-                    ]);
+                    ];
+                    if ($fabricant_guess) {
+                        $payload['fabricant'] = $fabricant_guess; // <<<<<<<<<<<<<<<<<<<<<< ajouté
+                    }
+                    insertSurveyData($payload);
+                    // ===================================================================================
+
                 }else{
                     if ($nodoc == 1) {
                         $resultat['info'] = $label;
@@ -341,7 +529,7 @@ foreach ($liste as $serial) {
                         if (rtrim($label, ' :') == 'Bon de livraison') $model = 'BL' ?? null;
                         if (rtrim($label, ' :') == 'Facture') $model = 'FA' ?? null;
                         if (rtrim($label, ' :') == 'Devis') $model = 'DE' ?? null;
-                    }  
+                    }
                     insertSurveyData([
                         'tickets_id'    => $Ticket_id,
                         'serial_number' => $serial,
@@ -356,60 +544,43 @@ foreach ($liste as $serial) {
         }
     }
 
-    // ################################# BL #################################
-    // Normalise $result en tableau puis relance en objet avec défauts
-    $result = (object) array_merge([
-        'SageLocal'   => 0,
-        'viewdoc'     => 0,
-        'positioning' => 0,   // si tu l’utilises ailleurs
-    ], (array)($result ?? []));
-
-    $SageLocal = (int)$result->SageLocal;      // 0 si absent
-    $viewdoc   = (int)$result->viewdoc;        // 0 si absent
-    $prefixOk  = (strncasecmp((string)$serial, 'BL', 2) === 0);
-
-    /* on sort du bloc dès qu’une condition manque  ------------------------------ */
-    if (!Plugin::isPluginActive('gestion')      // plugin Gestion OFF
-        || $SageLocal !== 1 
-        || $viewdoc   !== 1                     // préférence désactivée
-        || !$prefixOk) {                        // préfixe ≠ BL
-    continue;                                 // on passe au serial suivant
+    // ################################# BL / SAGE #################################
+    if (!Plugin::isPluginActive('gestion')
+        || $result->SageLocal != 1
+        || $result->viewdoc != 1
+        || strncasecmp($serial, 'BL', 2) !== 0) {
+        continue;
     }
 
-    /* mode Sage = 1 ? ----------------------------------------------------------- */
     $configGestion = new PluginGestionConfig();
     if ($configGestion->mode() != 1) {
-        continue;                                      // on passe au serial suivant
+        continue;
     }
 
     try {
         require_once PLUGIN_GESTION_DIR.'/vendor/autoload.php';
         require_once PLUGIN_GESTION_DIR.'/front/SageApi.php';
 
-        /* ------- Infos Sage / variables courantes ------------------------------ */
         $fields   = parseDocument($serial);
-        $ticketId = $Ticket_id; // ID du ticket en cours
+        $ticketId = $Ticket_id;
 
-        /* ------- 1. Cherche si le BL existe déjà ------------------------------- */
         $existingRows = iterator_to_array($DB->request([
             'SELECT' => ['id', 'tickets_id'],
             'FROM'   => 'glpi_plugin_gestion_surveys',
             'WHERE'  => ['url_bl' => $serial]
         ]));
 
-        $conflicts = []; // pour stocker les tickets déjà liés
+        $conflicts = [];
 
         if (!empty($existingRows)) {
             foreach ($existingRows as $row) {
                 $existingTicket = (int)$row['tickets_id'];
                 $rowId          = (int)$row['id'];
 
-                // a) déjà lié au ticket courant → on ignore
                 if ($existingTicket === $ticketId) {
                     continue;
                 }
 
-                // b) tickets_id NULL ou 0 → on met à jour
                 if ($existingTicket === 0) {
                     $sql = "UPDATE glpi_plugin_gestion_surveys
                             SET tickets_id = ?
@@ -421,24 +592,21 @@ foreach ($liste as $serial) {
                     continue;
                 }
 
-                // c) lié à d'autres tickets → on stocke pour message global
                 if ($existingTicket !== 0 && $existingTicket !== null) {
                     $conflicts[] = $existingTicket;
                 }
             }
 
-            // si conflits trouvés → message unique
             if (!empty($conflicts)) {
                 $warnings[] = "$serial attribué au(x) ticket(s) : " . implode(', ', $conflicts);
             }
 
         } else {
-            /* ------- 2. Insertion puisqu’aucun enregistrement ------------------ */
             $save      = 'Sage';
             $file_path = $serial.'_'.str_replace(' ', '_', $fields['client']);
             $protocol  = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
             $fileUrl   = "{$protocol}://{$_SERVER['SERVER_NAME']}".PLUGIN_GESTION_WEBDIR.
-                            "/view_pdf.php?id={$serial}";
+                            "/ajax/view_pdf.php?id={$serial}";
             $itemUrl   = $serial;
             $tracker   = $fields['tracker'] ?? null;
 
@@ -460,25 +628,27 @@ foreach ($liste as $serial) {
         }
 
     } catch (Throwable $e) {
-
-        // on ignore silencieusement les erreurs 404 API
         if (strpos($e->getMessage(), '(404)') !== false) {
             continue;
         }
-
-        // toutes les autres erreurs sont signalées
         $warnings[] = "Erreur BL « $serial » : ".$e->getMessage();
         continue;
     }
 }
 
-/*  … après la boucle …  */
-/* ---------------------- */
-$warnings = array_values(array_filter($warnings));   // supprime null / '' 
+$warnings = array_values(array_filter($warnings));
 
 header('Content-Type: application/json; charset=utf-8');
 echo json_encode([
-   'resultats' => $resultats,
-   'warnings'  => $warnings          // peut être [], mais pas ['']
-]);
+    'ok'        => true,
+    'resultats' => $resultats,
+    'warnings'  => $warnings
+], JSON_UNESCAPED_UNICODE);
+exit;
 
+/* =======================  Endpoint as_json facultatif  ======================= */
+/* (laisse tel quel si tu ne l’utilises pas)
+if (isset($_GET['as_json']) && (int)$_GET['as_json'] === 1) {
+    // ...
+}
+*/
