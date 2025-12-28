@@ -1,11 +1,11 @@
 <?php
-define('PLUGIN_WARRANTYCHECK_VERSION', '1.1.0-beta3'); // version du plugin
+define('PLUGIN_WARRANTYCHECK_VERSION', '1.1.1'); // version du plugin
 $_SESSION['PLUGIN_WARRANTYCHECK_VERSION'] = PLUGIN_WARRANTYCHECK_VERSION;
 
 // Minimal GLPI version,
 define("PLUGIN_WARRANTYCHECK_MIN_GLPI", "11.0.0");
 // Maximum GLPI version,
-define("PLUGIN_WARRANTYCHECK_MAX_GLPI", "11.0.1");
+define("PLUGIN_WARRANTYCHECK_MAX_GLPI", "11.2.0");
 
 define("PLUGIN_WARRANTYCHECK_WEBDIR", Plugin::getWebDir("warrantycheck"));
 define("PLUGIN_WARRANTYCHECK_DIR", Plugin::getPhpDir("warrantycheck"));
