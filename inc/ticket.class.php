@@ -16,12 +16,11 @@ class PluginWarrantycheckTicket extends CommonDBTM {
 
 //*--------------------------------------------------------------------------------------------- WARRANTYCHECK ONGLET
    static function getTypeName($nb = 0) { // voir doc glpi 
-      if(Session::haveRight("plugin_warrantycheck", READ)){
-         return _n('Garantie', 'Garantie', $nb, 'warrantycheck');
-      }
+      return _n('Garantie', 'Garantie', $nb, 'warrantycheck');
    }
    
    function getTabNameForItem(CommonGLPI $item, $withtemplate = 0) { // voir doc glpi 
+      if(Session::haveRight("plugin_warrantycheck", READ)){
          $nb = self::countForItem($item);
          switch ($item->getType()) {
             case 'Ticket' :
@@ -30,6 +29,7 @@ class PluginWarrantycheckTicket extends CommonDBTM {
                return self::getTypeName($nb);
          }
          return '';
+      }
    }
 
    static function displayTabContentForItem(CommonGLPI $item, $tabnum = 1, $withtemplate = 0) { // voir doc glpi 
