@@ -7,6 +7,16 @@ if (!defined('GLPI_ROOT')) {
 class PluginWarrantycheckConfig extends CommonDBTM
 {
    static private $_instance = null;
+   private static $cryptoKeyRawCache = null;
+   private static $cryptoKeySodiumCache = null;
+   private static $encryptedConfigFields = [
+      'ClientID_Dell',
+      'ClientSecret_Dell',
+      'ClientID_HP',
+      'ClientSecret_HP'
+   ];
+   private const LEGACY_OPENSSL_IV = '1234567890123456';
+   private const SODIUM_PREFIX = 'wc_sodium:';
 
    function __construct()
    {
@@ -48,6 +58,110 @@ class PluginWarrantycheckConfig extends CommonDBTM
          }
       }
       return self::$_instance;
+   }
+
+   private static function getEncryptionKeyRaw(): string
+   {
+      if (self::$cryptoKeyRawCache !== null) {
+         return self::$cryptoKeyRawCache;
+      }
+
+      $file_path = GLPI_ROOT . '/config/glpicrypt.key';
+      $key = @file_get_contents($file_path);
+      self::$cryptoKeyRawCache = is_string($key) ? $key : '';
+      return self::$cryptoKeyRawCache;
+   }
+
+   private static function getSodiumKey(): ?string
+   {
+      if (self::$cryptoKeySodiumCache === false) {
+         return null;
+      }
+      if (is_string(self::$cryptoKeySodiumCache)) {
+         return self::$cryptoKeySodiumCache;
+      }
+
+      if (!extension_loaded('sodium')) {
+         self::$cryptoKeySodiumCache = false;
+         return null;
+      }
+
+      $raw = self::getEncryptionKeyRaw();
+      if ($raw === '') {
+         self::$cryptoKeySodiumCache = false;
+         return null;
+      }
+
+      // Dérive une clé stable 32 bytes depuis la clé GLPI existante.
+      self::$cryptoKeySodiumCache = hash('sha256', $raw, true);
+      return self::$cryptoKeySodiumCache;
+   }
+
+   private static function encryptSecretValue($value): string
+   {
+      $value = (string)$value;
+      if ($value === '') {
+         return '';
+      }
+
+      $sodiumKey = self::getSodiumKey();
+      if ($sodiumKey !== null) {
+         $nonce  = random_bytes(SODIUM_CRYPTO_SECRETBOX_NONCEBYTES);
+         $cipher = sodium_crypto_secretbox($value, $nonce, $sodiumKey);
+         return self::SODIUM_PREFIX . base64_encode($nonce . $cipher);
+      }
+
+      // Fallback legacy pour environnement sans sodium.
+      $legacy = openssl_encrypt($value, 'aes-256-cbc', self::getEncryptionKeyRaw(), 0, self::LEGACY_OPENSSL_IV);
+      return is_string($legacy) ? base64_encode($legacy) : '';
+   }
+
+   private static function decryptSecretValue($value): string
+   {
+      $value = (string)$value;
+      if ($value === '') {
+         return '';
+      }
+
+      if (strncmp($value, self::SODIUM_PREFIX, strlen(self::SODIUM_PREFIX)) === 0) {
+         $payload = substr($value, strlen(self::SODIUM_PREFIX));
+         $bin = base64_decode($payload, true);
+         $sodiumKey = self::getSodiumKey();
+         if ($bin !== false && $sodiumKey !== null) {
+            $nlen = SODIUM_CRYPTO_SECRETBOX_NONCEBYTES;
+            if (strlen($bin) > $nlen) {
+               $nonce  = substr($bin, 0, $nlen);
+               $cipher = substr($bin, $nlen);
+               $plain = sodium_crypto_secretbox_open($cipher, $nonce, $sodiumKey);
+               if (is_string($plain)) {
+                  return $plain;
+               }
+            }
+         }
+         return '';
+      }
+
+      // Compatibilité legacy OpenSSL (valeurs déjà présentes en BDD).
+      $legacyCipher = base64_decode($value, true);
+      if ($legacyCipher !== false) {
+         $plain = openssl_decrypt($legacyCipher, 'aes-256-cbc', self::getEncryptionKeyRaw(), 0, self::LEGACY_OPENSSL_IV);
+         if (is_string($plain)) {
+            return $plain;
+         }
+      }
+
+      // Fallback tolérant: si valeur stockée en clair par erreur, on ne casse pas l'affichage.
+      return $value;
+   }
+
+   public static function prepareConfigInputForSave(array $input): array
+   {
+      foreach (self::$encryptedConfigFields as $field) {
+         if (array_key_exists($field, $input) && $input[$field] !== '') {
+            $input[$field] = self::encryptSecretValue($input[$field]);
+         }
+      }
+      return $input;
    }
 
    static function showConfigForm() //formulaire de configuration du plugin
@@ -222,7 +336,8 @@ class PluginWarrantycheckConfig extends CommonDBTM
             $WARRANTY_EXPORT = $WARRANTY_BASE . '/ajax/ajax_export_warranty_tickets.php'; // export
 
             // Jeton CSRF pour POST
-            $GLPI_CSRF = Session::getNewCSRFToken();
+            // Standalone token to avoid consuming the main config form token via AJAX delete action.
+            $GLPI_CSRF = Session::getNewCSRFToken(true);
             ?>
 
             <button id="openModalButton" type="button" class="btn btn-primary">Voir les numéros de série</button>
@@ -501,15 +616,9 @@ class PluginWarrantycheckConfig extends CommonDBTM
       echo "<input type='submit' class='submit' name='update' value=\"" . __('Save') . "\">";
       echo "</td>";
       echo "</tr>";
+      echo Html::hidden('plugin_warrantycheck_config_csrf_token', ['value' => Session::getNewCSRFToken(true)]);
       $config->showFormButtons(['candel' => false]);
       return false;
-   }
-
-   // Fonction pour charger la clé de cryptage à partir du fichier
-   private function loadEncryptionKey() {
-      // Chemin vers le fichier de clé de cryptage
-      $file_path = GLPI_ROOT . '/config/glpicrypt.key';
-      return file_get_contents($file_path);
    }
 
    // return fonction (retourn les values enregistrées en bdd)
@@ -583,16 +692,16 @@ class PluginWarrantycheckConfig extends CommonDBTM
    }
  
    function ClientID_Dell(){
-      return openssl_decrypt(base64_decode($this->fields['ClientID_Dell']), 'aes-256-cbc', $this->loadEncryptionKey(), 0, '1234567890123456');   
+      return self::decryptSecretValue($this->fields['ClientID_Dell'] ?? '');
    }
    function ClientSecret_Dell(){
-      return openssl_decrypt(base64_decode($this->fields['ClientSecret_Dell']), 'aes-256-cbc', $this->loadEncryptionKey(), 0, '1234567890123456');   
+      return self::decryptSecretValue($this->fields['ClientSecret_Dell'] ?? '');
    }
    function ClientID_HP(){
-      return openssl_decrypt(base64_decode($this->fields['ClientID_HP']), 'aes-256-cbc', $this->loadEncryptionKey(), 0, '1234567890123456');   
+      return self::decryptSecretValue($this->fields['ClientID_HP'] ?? '');
    }
    function ClientSecret_HP(){
-      return openssl_decrypt(base64_decode($this->fields['ClientSecret_HP']), 'aes-256-cbc', $this->loadEncryptionKey(), 0, '1234567890123456');   
+      return self::decryptSecretValue($this->fields['ClientSecret_HP'] ?? '');
    }
    // return fonction
 

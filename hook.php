@@ -20,7 +20,10 @@ function plugin_warrantycheck_install() { // fonction installation du plugin
          KEY `users_id` (`users_id`)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci ROW_FORMAT=DYNAMIC;";
 
-      $DB->doQuery($query) or die("error creating glpi_plugin_warrantycheck_preferences " . $DB->error());
+      if (!$DB->doQuery($query)) {
+         Toolbox::logInFile('plugin_warrantycheck', "ERROR: failed to create glpi_plugin_warrantycheck_preferences: " . $DB->error() . PHP_EOL);
+         return false;
+      }
    }
       if ($_SESSION['PLUGIN_WARRANTYCHECK_VERSION'] > '1.0.1'){
          // Vérifier si les colonnes existent déjà
@@ -37,7 +40,9 @@ function plugin_warrantycheck_install() { // fonction installation du plugin
          if (!empty($missing_columns)) {
             $query= "ALTER TABLE glpi_plugin_warrantycheck_preferences
                ADD COLUMN `statuswarranty` INT(10) NOT NULL DEFAULT '0';";
-            $DB->doQuery($query) or die($DB->error());
+            if (!$DB->doQuery($query)) {
+               Toolbox::logInFile('plugin_warrantycheck', "ERROR: ALTER TABLE failed: " . $DB->error() . PHP_EOL);
+            }
          }
       }
 
@@ -56,7 +61,9 @@ function plugin_warrantycheck_install() { // fonction installation du plugin
          if (!empty($missing_columns)) {
             $query= "ALTER TABLE glpi_plugin_warrantycheck_preferences
                ADD COLUMN `maxserial` INT(10) NOT NULL DEFAULT '9999';";
-            $DB->doQuery($query) or die($DB->error());
+            if (!$DB->doQuery($query)) {
+               Toolbox::logInFile('plugin_warrantycheck', "ERROR: ALTER TABLE failed: " . $DB->error() . PHP_EOL);
+            }
          }
       }
 
@@ -77,7 +84,9 @@ function plugin_warrantycheck_install() { // fonction installation du plugin
             $query= "ALTER TABLE glpi_plugin_warrantycheck_preferences
                ADD COLUMN `viewdoc` INT(10) NOT NULL DEFAULT '0',
                ADD COLUMN `positioning` INT(10) NOT NULL DEFAULT '0';";
-            $DB->doQuery($query) or die($DB->error());
+            if (!$DB->doQuery($query)) {
+               Toolbox::logInFile('plugin_warrantycheck', "ERROR: ALTER TABLE failed: " . $DB->error() . PHP_EOL);
+            }
          }
       }
 
@@ -96,7 +105,9 @@ function plugin_warrantycheck_install() { // fonction installation du plugin
          if (!empty($missing_columns)) {
             $query= "ALTER TABLE glpi_plugin_warrantycheck_preferences
                ADD COLUMN `SageLocal` INT(10) NOT NULL DEFAULT '0';";
-            $DB->doQuery($query) or die($DB->error());
+            if (!$DB->doQuery($query)) {
+               Toolbox::logInFile('plugin_warrantycheck', "ERROR: ALTER TABLE failed: " . $DB->error() . PHP_EOL);
+            }
          }
       }
    

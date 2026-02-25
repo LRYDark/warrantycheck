@@ -35,6 +35,12 @@ set_exception_handler(function($e){
 
 try {
   Session::checkLoginUser(); // évite la redirection HTML vers login
+  if (!Session::haveRight('config', UPDATE)) {
+    http_response_code(403);
+    $buf = ob_get_clean();
+    echo json_encode(['error' => true, 'message' => 'Forbidden', 'debug_html' => trim($buf)]);
+    exit;
+  }
   global $DB;
 
   // Mode diagnostic rapide si besoin
@@ -56,6 +62,10 @@ try {
   $searchRaw = trim((string)($_GET['q'] ?? ''));
   $prefix    = trim((string)($_GET['prefix'] ?? ''));  // id|ticket|sn|''
   $exact     = (int)($_GET['exact'] ?? 0);
+  $prefix    = in_array($prefix, ['id', 'ticket', 'sn', ''], true) ? $prefix : '';
+  if (mb_strlen($searchRaw, 'UTF-8') > 255) {
+    $searchRaw = mb_substr($searchRaw, 0, 255, 'UTF-8');
+  }
   $offset    = ($page - 1) * $pageSize;
 
   $table = 'glpi_plugin_warrantycheck_tickets';
@@ -69,31 +79,34 @@ try {
   // ---- WHERE
   $where = '1=1';
   if ($searchRaw !== '') {
-    $q     = mb_strtolower($searchRaw, 'UTF-8');
-    $qLike = $like($q);
+    $q      = mb_strtolower($searchRaw, 'UTF-8');
+    $qLike  = $like($q);
+    $qSql   = $DB->escape($q);
+    $qLikeSql = $DB->escape($qLike);
 
     if ($prefix === 'id') {
       $where .= $exact
         ? " AND id = ".(int)$q
-        : " AND CAST(id AS CHAR) LIKE '%{$qLike}%'";
+        : " AND CAST(id AS CHAR) LIKE '%{$qLikeSql}%'";
     } elseif ($prefix === 'ticket') {
       if ($exact) {
         $qInt = (int)$q;          // on normalise le token en entier
         $qTok = (string)$qInt;    // puis on compare en CHAÎNE pour éviter les casts DECIMAL
         // tickets_id = '123' OU liste CSV contenant '123' (espaces tolérés)
-        $where .= " AND (tickets_id = '{$qTok}' OR FIND_IN_SET('{$qTok}', REPLACE(tickets_id,' ','')) > 0)";
+        $qTokSql = $DB->escape($qTok);
+        $where .= " AND (tickets_id = '{$qTokSql}' OR FIND_IN_SET('{$qTokSql}', REPLACE(tickets_id,' ','')) > 0)";
       } else {
-        $where .= " AND CAST(tickets_id AS CHAR) LIKE '%{$qLike}%'";
+        $where .= " AND CAST(tickets_id AS CHAR) LIKE '%{$qLikeSql}%'";
       }
     } elseif ($prefix === 'sn') {
       $where .= $exact
-        ? " AND LOWER(serial_number) = '{$q}'"
-        : " AND LOWER(serial_number) LIKE '%{$qLike}%'";
+        ? " AND LOWER(serial_number) = '{$qSql}'"
+        : " AND LOWER(serial_number) LIKE '%{$qLikeSql}%'";
     } else {
       $where .= " AND (
-         LOWER(serial_number) LIKE '%{$qLike}%'
-         OR CAST(tickets_id AS CHAR) LIKE '%{$qLike}%'
-         OR CAST(id AS CHAR) LIKE '%{$qLike}%'
+         LOWER(serial_number) LIKE '%{$qLikeSql}%'
+         OR CAST(tickets_id AS CHAR) LIKE '%{$qLikeSql}%'
+         OR CAST(id AS CHAR) LIKE '%{$qLikeSql}%'
       )";
     }
   }

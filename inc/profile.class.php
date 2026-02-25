@@ -46,6 +46,7 @@ class PluginWarrantycheckProfile extends Profile {
       if ($canedit && $closeform) {
          echo "<div class='center'>";
          echo Html::hidden('id', ['value' => $profiles_id]);
+         echo Html::hidden('plugin_warrantycheck_profile_csrf_token', ['value' => Session::getNewCSRFToken(true)]);
          echo Html::submit(_sx('button', 'Save'), ['name' => 'update', 'class' => 'btn btn-primary']);
          echo "</div>\n";
          Html::closeForm();

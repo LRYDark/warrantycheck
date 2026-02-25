@@ -12,23 +12,35 @@ $UserID = Session::getLoginUserID();
    global $CFG_GLPI;
    require_once 'warranty_functions.php';
 
-   if (!empty($_GET["Manufacturer"])){
-      $Manufacturer = $_GET["Manufacturer"];
-   }else{
-      $Manufacturer = NULL;
+   $Manufacturer = null;
+   if (!empty($_GET["Manufacturer"])) {
+      $candidate = (string)$_GET["Manufacturer"];
+      $allowedManufacturers = ['HP', 'Dell', 'Lenovo', 'Terra', 'Dynabook'];
+      if (in_array($candidate, $allowedManufacturers, true)) {
+         $Manufacturer = $candidate;
+      }
    }
 
-   $serial = strtoupper(trim($_GET['serial']));
+   $serial = strtoupper(trim((string)($_GET['serial'] ?? '')));
+   $serial = preg_replace('/[^A-Z0-9#\\-]/', '', $serial);
+   if ($serial === '') {
+      Session::addMessageAfterRedirect(__('Numéro de série invalide.', 'warrantycheck'), false, ERROR);
+      Html::back();
+   }
    $result = detectBrand($serial, $Manufacturer);
    
    $cle = uniqid('cri_', true);  // Clé unique
    $_SESSION['generatecri_cache'][$cle] = $result;
 
-   $fabricant = $_SESSION[$serial];
+   $fabricant = (string)($_SESSION[$serial] ?? '');
    unset($_SESSION[$serial]);
 
    // Redirection vers front/generatecri.php avec la clé
-   Html::redirect('generatecri.php?cache_id=' . $cle . '&fabricant=' . $fabricant . '&serial=' . $serial);
+   Html::redirect(
+      'generatecri.php?cache_id=' . rawurlencode($cle)
+      . '&fabricant=' . rawurlencode($fabricant)
+      . '&serial=' . rawurlencode($serial)
+   );
 //}
 
 if (Session::getCurrentInterface() == 'central') {

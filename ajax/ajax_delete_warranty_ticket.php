@@ -39,7 +39,13 @@ set_exception_handler(function($e){
 try {
   // Sécurité GLPI
   Session::checkLoginUser();
-  Session::checkCSRF($_POST);
+  if (!Session::haveRight('config', UPDATE)) {
+    http_response_code(403);
+    $buf = ob_get_clean();
+    echo json_encode(['error' => true, 'message' => 'Forbidden', 'debug_html' => trim($buf)]);
+    exit;
+  }
+  Session::checkCSRF($_POST, true);
 
   if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);

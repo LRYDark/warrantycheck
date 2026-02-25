@@ -1,12 +1,20 @@
 <?php
 include('../../../inc/includes.php');
 Session::checkLoginUser();
+if (!Session::haveRight('plugin_warrantycheck', READ)) {
+    header('Content-Type: application/json; charset=utf-8');
+    http_response_code(403);
+    echo json_encode([]);
+    exit;
+}
 
 if (!defined('GLPI_ROOT')) {
     die("Sorry. You can't access directly to this file");
 }
 
-ob_clean(); // Vide tout ce qui a pu être envoyé avant
+if (ob_get_level() > 0) {
+    ob_clean(); // Vide tout ce qui a pu être envoyé avant
+}
 
     global $DB;
 
@@ -365,6 +373,45 @@ function getTicketTextUltra(int $ticketId): string {
         }
     }
 
+    $resT = $DB->doQuery("
+        SELECT content
+        FROM glpi_tickettasks
+        WHERE tickets_id = $ticketId
+        ORDER BY id DESC
+        LIMIT 100
+    ");
+    if ($resT) {
+        while ($tr = $DB->fetchassoc($resT)) {
+            $parts[] = (string)($tr['content'] ?? '');
+        }
+    }
+
+    $resV = $DB->doQuery("
+        SELECT comment_submission
+        FROM glpi_ticketvalidations
+        WHERE tickets_id = $ticketId
+        ORDER BY id DESC
+        LIMIT 50
+    ");
+    if ($resV) {
+        while ($vr = $DB->fetchassoc($resV)) {
+            $parts[] = (string)($vr['comment_submission'] ?? '');
+        }
+    }
+
+    $resS = $DB->doQuery("
+        SELECT content
+        FROM glpi_itilsolutions
+        WHERE items_id = $ticketId AND itemtype = 'Ticket'
+        ORDER BY id DESC
+        LIMIT 20
+    ");
+    if ($resS) {
+        while ($sr = $DB->fetchassoc($resS)) {
+            $parts[] = (string)($sr['content'] ?? '');
+        }
+    }
+
     $text = implode("\n\n", array_filter($parts, fn($s)=> is_string($s) && trim($s) !== ''));
     return $text;
 }
@@ -380,29 +427,13 @@ if ($Ticket_id <= 0) {
     exit;
 }
 
-$result = $DB->doQuery("
-   SELECT
-      t.content AS ticket_content,
-      tt.content AS task_content,
-      f.content AS followup_content,
-      tv.comment_submission AS validation_comment,
-      s.content AS solution_content
-   FROM glpi_tickets t
-   LEFT JOIN glpi_tickettasks tt ON t.id = tt.tickets_id
-   LEFT JOIN glpi_itilfollowups f ON t.id = f.items_id
-   LEFT JOIN glpi_ticketvalidations tv ON t.id = tv.tickets_id
-   LEFT JOIN glpi_itilsolutions s ON s.items_id = t.id AND s.itemtype = 'Ticket'
-   WHERE t.id = $Ticket_id
-");
-
-$all_text = '';
-while ($row = $DB->fetchassoc($result)) {
-   foreach (['ticket_content', 'task_content', 'followup_content', 'validation_comment', 'solution_content'] as $field) {
-      if (!empty($row[$field])) {
-            $all_text .= "\n" . $row[$field];
-      }
-   }
+$ticketObj = new Ticket();
+if (!$ticketObj->can($Ticket_id, READ)) {
+    echo json_encode([]);
+    exit;
 }
+
+$all_text = getTicketTextUltra($Ticket_id);
 
 // Détection
 $liste = findSerialNumbers($all_text);
@@ -416,10 +447,19 @@ $warnings  = [];
 require_once PLUGIN_WARRANTYCHECK_DIR . '/front/warranty_functions.php';
 $config = new PluginWarrantycheckConfig();
 $userid = Session::getLoginUserID();
-$result = $DB->doQuery("SELECT * FROM `glpi_plugin_warrantycheck_preferences` WHERE users_id = $userid")->fetch_object();
-$statuswarranty = $result->statuswarranty;
-$max = $result->maxserial;
-$viewdoc = $result->viewdoc;
+$prefId = (int)PluginWarrantycheckPreference::checkIfPreferenceExists($userid);
+if ($prefId <= 0) {
+    $prefId = (int)PluginWarrantycheckPreference::addDefaultPreference($userid);
+}
+$pref = new PluginWarrantycheckPreference();
+$pref->getFromDB($prefId);
+$statuswarranty = (int)($pref->fields['statuswarranty'] ?? 0);
+$max           = max(1, (int)($pref->fields['maxserial'] ?? 9999));
+$viewdoc       = (int)($pref->fields['viewdoc'] ?? 0);
+$sageLocalPref = (int)($pref->fields['SageLocal'] ?? 0);
+$warrantyInfoCache = [];
+$gestionPluginActive = Plugin::isPluginActive('gestion');
+$gestionModeCache = null;
 
 $BonLivraisonPrefixes = $config->Filtre_BonDeLivraison() ? _cfg_csv_to_array($config->Filtre_BonDeLivraison()) : [];
 $DevisPrefixes        = $config->Filtre_Devis() ? _cfg_csv_to_array($config->Filtre_Devis()) : [];
@@ -457,7 +497,10 @@ foreach ($liste as $serial) {
 
     if($nodocconf == 1){
         if($statuswarranty === 1){
-            $infos = detectBrand($serial, $Manufacturer = null);
+            if (!array_key_exists($serial, $warrantyInfoCache)) {
+                $warrantyInfoCache[$serial] = detectBrand($serial, null);
+            }
+            $infos = $warrantyInfoCache[$serial];
 
             insertSurveyData([
                 'tickets_id'    => $Ticket_id,
@@ -547,15 +590,18 @@ foreach ($liste as $serial) {
     }
 
     // ################################# BL / SAGE #################################
-    if (!Plugin::isPluginActive('gestion')
-        || $result->SageLocal != 1
-        || $result->viewdoc != 1
+    if (!$gestionPluginActive
+        || $sageLocalPref != 1
+        || $viewdoc != 1
         || strncasecmp($serial, 'BL', 2) !== 0) {
         continue;
     }
 
-    $configGestion = new PluginGestionConfig();
-    if ($configGestion->mode() != 1) {
+    if ($gestionModeCache === null) {
+        $configGestion = new PluginGestionConfig();
+        $gestionModeCache = (int)$configGestion->mode();
+    }
+    if ($gestionModeCache != 1) {
         continue;
     }
 
@@ -566,11 +612,14 @@ foreach ($liste as $serial) {
         $fields   = parseDocument($serial);
         $ticketId = $Ticket_id;
 
-        $existingRows = iterator_to_array($DB->request([
+        $existingRows = [];
+        foreach ($DB->request([
             'SELECT' => ['id', 'tickets_id'],
             'FROM'   => 'glpi_plugin_gestion_surveys',
             'WHERE'  => ['url_bl' => $serial]
-        ]));
+        ]) as $row) {
+            $existingRows[] = $row;
+        }
 
         $conflicts = [];
 
@@ -607,7 +656,11 @@ foreach ($liste as $serial) {
             $save      = 'Sage';
             $file_path = $serial.'_'.str_replace(' ', '_', $fields['client']);
             $protocol  = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-            $fileUrl   = "{$protocol}://{$_SERVER['SERVER_NAME']}".PLUGIN_GESTION_WEBDIR.
+            $serverName = preg_replace('/[^A-Za-z0-9.\\-]/', '', (string)($_SERVER['SERVER_NAME'] ?? ''));
+            if ($serverName === '') {
+                $serverName = 'localhost';
+            }
+            $fileUrl   = "{$protocol}://{$serverName}".PLUGIN_GESTION_WEBDIR.
                             "/ajax/view_pdf.php?id={$serial}";
             $itemUrl   = $serial;
             $tracker   = $fields['tracker'] ?? null;

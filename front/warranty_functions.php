@@ -1,5 +1,7 @@
 <?php
-include('../../../inc/includes.php');
+if (!defined('GLPI_ROOT')) {
+    include('../../../inc/includes.php');
+}
 
 if (!defined('GLPI_ROOT')) {
     die("Sorry. You can't access directly to this file");
@@ -8,64 +10,56 @@ if (!defined('GLPI_ROOT')) {
 function insertSurveyData(array $data) {
     global $DB;
 
-    $count = countElementsInTable('glpi_plugin_warrantycheck_tickets', ['serial_number' => $data['serial_number']]);
+    $serial = (string)($data['serial_number'] ?? '');
+    if ($serial === '') {
+        return;
+    }
 
-    $serial =  $data['serial_number'];
-    if ($count > 0 && !empty($data['tickets_id'])) {
-        // Récupérer la liste actuelle des tickets
-        if ($query = $DB->doQuery("SELECT id, tickets_id FROM glpi_plugin_warrantycheck_tickets WHERE serial_number = '$serial'")->fetch_object()) {
-        
-            $existing_id      = $query->id;
-            $existing_tickets = array_map('trim', explode(',', $query->tickets_id)); // ✅ bonne colonne
-        
-            // Vérifie si le nouveau ticket est déjà présent
-            if (!in_array($data['tickets_id'], $existing_tickets)) {
-                // Ajout du nouveau ticket
-                $updated_tickets = implode(',', array_merge($existing_tickets, [$data['tickets_id']]));
-        
-                $update_sql = "UPDATE glpi_plugin_warrantycheck_tickets SET tickets_id = ? WHERE id = ?";
-                $update_stmt = $DB->prepare($update_sql);
-                try {
-                    $update_stmt->execute([$updated_tickets, $existing_id]);
-                } catch (Throwable $e) {
-                    Toolbox::logDebug("PluginWarrantyCheck", "Update error: " . $e->getMessage());
-                }
-            }
-        }           
-    } elseif ($count == 0) {
-        // Insertion initiale si aucun serial_number trouvé
-        $data['tickets_id']  = $data['tickets_id']  ?? 0;
-        $data['fabricant']   = $data['fabricant']   ?? 'Inconnu';
-        $data['model']       = $data['model']       ?? 'Inconnu';
-        $data['date_start']  = $data['date_start']  ?? NULL;
-        $data['date_end']    = $data['date_end']    ?? NULL;
+    // SELECT via l'API GLPI (mysqli-compatible)
+    $rows = iterator_to_array($DB->request([
+        'SELECT' => ['id', 'tickets_id'],
+        'FROM'   => 'glpi_plugin_warrantycheck_tickets',
+        'WHERE'  => ['serial_number' => $serial],
+        'LIMIT'  => 1,
+    ]));
+    $existing = !empty($rows) ? reset($rows) : null;
 
-        $fields       = array_keys($data);
-        $placeholders = array_fill(0, count($fields), '?');
-        $values       = array_values($data);
+    if ($existing && !empty($data['tickets_id'])) {
+        $existing_id      = (int)($existing['id'] ?? 0);
+        $existing_tickets = array_filter(array_map('trim', explode(',', (string)($existing['tickets_id'] ?? ''))), static fn($v) => $v !== '');
 
-        $sql = "INSERT INTO glpi_plugin_warrantycheck_tickets (" . implode(',', $fields) . ")
-                VALUES (" . implode(',', $placeholders) . ")";
-
-        try {
-            $stmt = $DB->prepare($sql);
-            $stmt->execute($values);
-        } catch (Throwable $e) {
-            Toolbox::logDebug("PluginWarrantyCheck", "Insert error: " . $e->getMessage());
+        if (!in_array((string)$data['tickets_id'], $existing_tickets, true)) {
+            $updated_tickets = implode(',', array_merge($existing_tickets, [(string)$data['tickets_id']]));
+            $DB->update('glpi_plugin_warrantycheck_tickets', ['tickets_id' => $updated_tickets], ['id' => $existing_id]);
         }
+    } elseif (!$existing) {
+        $data['tickets_id'] = $data['tickets_id'] ?? 0;
+        $data['fabricant']  = $data['fabricant']  ?? 'Inconnu';
+        $data['model']      = $data['model']       ?? 'Inconnu';
+        $data['date_start'] = $data['date_start']  ?? null;
+        $data['date_end']   = $data['date_end']    ?? null;
+
+        $DB->insert('glpi_plugin_warrantycheck_tickets', $data);
     }
 }
 
 function select($serial, $Manufacturer){
+    static $checkerCache = [];
     // Appeler la méthode appropriée en fonction du constructeur
     switch ($Manufacturer) {
         case 'HP':
-            $checker = new HpWarrantyChecker();
+            if (!isset($checkerCache['HP'])) {
+                $checkerCache['HP'] = new HpWarrantyChecker();
+            }
+            $checker = $checkerCache['HP'];
             return $checker->getNormalized($serial);
         case 'Lenovo':
             return LenovoWarranty::getNormalized($serial);
         case 'Dell':
-            $checker = new DellWarrantyChecker();
+            if (!isset($checkerCache['Dell'])) {
+                $checkerCache['Dell'] = new DellWarrantyChecker();
+            }
+            $checker = $checkerCache['Dell'];
             return $checker->getNormalized($serial);
         case 'Dynabook':
             return DynabookWarranty::getNormalized($serial);
@@ -107,49 +101,42 @@ function detectBrand($serial, $Manufacturer) {
     $config = new PluginWarrantycheckConfig();
     
     if ($Manufacturer === NULL){
-        // Convertir les chaînes de préfixes en tableaux
-        $hpPrefixes = $config->Filtre_HP() ? explode(',', $config->Filtre_HP()) : [];
-        $lenovoPrefixes = $config->Filtre_Lenovo() ? explode(',', $config->Filtre_Lenovo()) : [];
-        $dellPrefixes = $config->Filtre_Dell() ? explode(',', $config->Filtre_Dell()) : [];
-        $dynabookPrefixes = $config->Filtre_Dynabook() ? explode(',', $config->Filtre_Dynabook()) : [];
-        $terraPrefixes = $config->Filtre_Terra() ? explode(',', $config->Filtre_Terra()) : [];
-        $iiyamaPrefixes = $config->Filtre_IIyama() ? explode(',', $config->Filtre_IIyama()) : []; // new
-        $diversPrefixes = $config->Filtre_Autres() ? explode(',', $config->Filtre_Autres()) : []; // new
+        static $brandPrefixesCache = null;
+        if ($brandPrefixesCache === null) {
+            $csv = static function($v): array {
+                if (!is_string($v) || trim($v) === '') {
+                    return [];
+                }
+                return array_map('trim', explode(',', $v));
+            };
 
-        if ($config->related_elements() == 1){
-            $BonLivraisonPrefixes = $config->Filtre_BonDeLivraison() ? explode(',', $config->Filtre_BonDeLivraison()) : [];
-            $DevisPrefixes = $config->Filtre_Devis() ? explode(',', $config->Filtre_Devis()) : [];
-            $FacturePrefixes = $config->Filtre_Facture() ? explode(',', $config->Filtre_Facture()) : [];
-            $BonCommadePrefixes = $config->Filtre_BonDeCommande() ? explode(',', $config->Filtre_BonDeCommande()) : [];        
-        }
+            $brandPrefixesCache = [
+                'HP'       => $csv($config->Filtre_HP()),
+                'Lenovo'   => $csv($config->Filtre_Lenovo()),
+                'Dell'     => $csv($config->Filtre_Dell()),
+                'Dynabook' => $csv($config->Filtre_Dynabook()),
+                'Terra'    => $csv($config->Filtre_Terra()),
+                'IIyama'   => $csv($config->Filtre_IIyama()),
+                'Divers'   => $csv($config->Filtre_Autres()),
+            ];
 
-        // Tableau des préfixes associés à chaque constructeur
-        $brandPrefixes = [
-            'HP' => $hpPrefixes,
-            'Lenovo' => $lenovoPrefixes,
-            'Dell' => $dellPrefixes, 
-            'Dynabook' => $dynabookPrefixes,
-            'Terra' => $terraPrefixes,
-            'IIyama' => $iiyamaPrefixes, // new
-            'Divers' => $diversPrefixes, // new
-        ];
-
-        if ($config->related_elements() == 1){
-            // Tableau des préfixes associés à chaque constructeur
-            $brandPrefixes = array_merge($brandPrefixes, [
-                'BonDeCommande' => $BonCommadePrefixes,
-                'BonDeLivraison' => $BonLivraisonPrefixes,
-                'Facture' => $FacturePrefixes,
-                'Devis' => $DevisPrefixes,
-            ]);
+            if ($config->related_elements() == 1) {
+                $brandPrefixesCache = array_merge($brandPrefixesCache, [
+                    'BonDeCommande'  => $csv($config->Filtre_BonDeCommande()),
+                    'BonDeLivraison' => $csv($config->Filtre_BonDeLivraison()),
+                    'Facture'        => $csv($config->Filtre_Facture()),
+                    'Devis'          => $csv($config->Filtre_Devis()),
+                ]);
+            }
         }
 
         // Variable pour suivre le constructeur par défaut
         $defaultBrand = null;
 
         // Parcourir chaque constructeur et vérifier les préfixes
-        foreach ($brandPrefixes as $brand => $prefixes) {
+        foreach ($brandPrefixesCache as $brand => $prefixes) {
             foreach ($prefixes as $prefix) {
+                $prefix = strtoupper(trim((string)$prefix));
                 // Vérifier si le numéro de série commence par le préfixe
                 if (strpos($serial, $prefix) === 0) {
                     if ($prefix !== '') {
@@ -180,7 +167,11 @@ function detectBrand($serial, $Manufacturer) {
 class LenovoWarranty extends CommonDBTM {
     public static function getWarrantyInfo($serial) {
         $url = "https://pcsupport.lenovo.com/products/$serial/warranty";
-        $html = @file_get_contents($url);
+        $ctx = stream_context_create([
+            'http' => ['timeout' => 10, 'ignore_errors' => true],
+            'https' => ['timeout' => 10, 'ignore_errors' => true],
+        ]);
+        $html = @file_get_contents($url, false, $ctx);
         if (!$html) return null;
 
         $json = stristr($html, 'window.ds_warranties');
@@ -248,6 +239,8 @@ class HpWarrantyChecker extends CommonDBTM {
             CURLOPT_URL => "https://warranty.api.hp.com/oauth/v1/token",
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_POST => true,
+            CURLOPT_TIMEOUT => 15,
+            CURLOPT_CONNECTTIMEOUT => 5,
             CURLOPT_POSTFIELDS => "grant_type=client_credentials",
             CURLOPT_HTTPHEADER => [
                 "Authorization: Basic $auth",
@@ -342,6 +335,8 @@ class HpWarrantyChecker extends CommonDBTM {
             CURLOPT_URL => "https://warranty.api.hp.com/productwarranty/v2/jobs",
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_POST => true,
+            CURLOPT_TIMEOUT => 15,
+            CURLOPT_CONNECTTIMEOUT => 5,
             CURLOPT_POSTFIELDS => json_encode($postData),
             CURLOPT_HTTPHEADER => [
                 "Authorization: Bearer {$this->access_token}",
@@ -370,6 +365,8 @@ class HpWarrantyChecker extends CommonDBTM {
         curl_setopt_array($curl, [
             CURLOPT_URL => "https://warranty.api.hp.com/productwarranty/v2/jobs/$jobId/results",
             CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => 15,
+            CURLOPT_CONNECTTIMEOUT => 5,
             CURLOPT_HTTPHEADER => [
                 "Authorization: Bearer {$this->access_token}",
                 "Content-Type: application/json",
@@ -409,8 +406,14 @@ class DellWarrantyChecker extends CommonDBTM {
             'http' => [
                 'method' => 'POST',
                 'header' => "Content-type: application/x-www-form-urlencoded",
+                'timeout' => 15,
+                'ignore_errors' => true,
                 'content' => $data
-            ]
+            ],
+            'https' => [
+                'timeout' => 15,
+                'ignore_errors' => true,
+            ],
         ]);
         $result = @file_get_contents($this->token_url, false, $context);
         $http_code = $this->getHttpResponseCode();
@@ -432,8 +435,14 @@ class DellWarrantyChecker extends CommonDBTM {
         $context = stream_context_create([
             'http' => [
                 'method' => 'GET',
-                'header' => "Authorization: Bearer $token\r\nAccept: application/json\r\n"
-            ]
+                'header' => "Authorization: Bearer $token\r\nAccept: application/json\r\n",
+                'timeout' => 15,
+                'ignore_errors' => true,
+            ],
+            'https' => [
+                'timeout' => 15,
+                'ignore_errors' => true,
+            ],
         ]);
         $result = file_get_contents($url, false, $context);
         $data = json_decode($result, true);
@@ -489,7 +498,11 @@ class DellWarrantyChecker extends CommonDBTM {
 class DynabookWarranty extends CommonDBTM {
     public static function getWarrantyInfo($serial) {
         $url = "https://support.dynabook.com/support/warrantyResults?sno=" . urlencode($serial);
-        $response = @file_get_contents($url);
+        $ctx = stream_context_create([
+            'http' => ['timeout' => 10, 'ignore_errors' => true],
+            'https' => ['timeout' => 10, 'ignore_errors' => true],
+        ]);
+        $response = @file_get_contents($url, false, $ctx);
         if (!$response) return null;
 
         $data = json_decode($response, true);
@@ -538,6 +551,7 @@ class WarrantyChecker_Terra {
     public static function check($serial)
     {
         $url = "https://www.wortmann.de/fr-fr/profile/snsearch.aspx?SN=" . urlencode($serial);
+        $cookieFile = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'warrantycheck_terra_cookie.txt';
 
         $options = [
             CURLOPT_RETURNTRANSFER => true,

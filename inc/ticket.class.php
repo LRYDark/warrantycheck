@@ -43,6 +43,7 @@ class PluginWarrantycheckTicket extends CommonDBTM {
 
    public static function countTicketsIDMatch($table, $column, $value) {
       global $DB;
+      $value = (int)$value;
 
       $sql = "
          SELECT COUNT(*) AS total
@@ -53,7 +54,7 @@ class PluginWarrantycheckTicket extends CommonDBTM {
             OR `$column` LIKE '%,{$value},%'
       ";
       $res = $DB->doQuery($sql);
-      if ($row = $DB->fetchassoc($res)) {
+      if ($res && $row = $res->fetch_assoc()) {
          return (int)$row['total'];
       }
       return 0;
@@ -229,16 +230,22 @@ class PluginWarrantycheckTicket extends CommonDBTM {
    static function postShowItemNewTaskWARRANTYCHECK($params) {
       global $DB, $CFG_GLPI, $warrantycheck;
       $config = new PluginWarrantycheckConfig();
-      $userid = Session::getLoginUserID();
-      $result = $DB->doQuery("SELECT * FROM `glpi_plugin_warrantycheck_preferences` WHERE users_id = $userid")->fetch_object();
+      $userid = (int)Session::getLoginUserID();
+      $prefId = (int)PluginWarrantycheckPreference::checkIfPreferenceExists($userid);
+      if ($prefId <= 0) {
+         $prefId = (int)PluginWarrantycheckPreference::addDefaultPreference($userid);
+      }
+      $pref = new PluginWarrantycheckPreference();
+      $pref->getFromDB($prefId);
       $VerifURL = isset($_GET['_target']) ? basename($_GET['_target']) : '';
 
-      $checkvalidate = $result->checkvalidate;
-      $statuswarranty = $result->statuswarranty;
-      $toastdelay = $result->toastdelay * 1000;
+      $checkvalidate  = (int)($pref->fields['checkvalidate'] ?? 1);
+      $statuswarranty = (int)($pref->fields['statuswarranty'] ?? 0);
+      $toastdelay     = (int)($pref->fields['toastdelay'] ?? 60) * 1000;
+      $ticketIdParam  = (int)($_GET['id'] ?? 0);
 
       $entities_id = 0;
-      $idticket = $_GET['id'];
+      $idticket = $ticketIdParam;
       if($idticket){
          if($query = $DB->doQuery("SELECT entities_id FROM `glpi_tickets` WHERE id = $idticket")->fetch_object()){
             $entities_id = $query->entities_id;
@@ -246,12 +253,12 @@ class PluginWarrantycheckTicket extends CommonDBTM {
       }
 
       // Vérifier si l'URL contient 'id != 0'
-      if ($VerifURL == 'ticket.form.php' && $_GET['id'] != 0) {
-         if ($result->warrantypopup == 1){
+      if ($VerifURL == 'ticket.form.php' && $ticketIdParam !== 0) {
+         if ((int)($pref->fields['warrantypopup'] ?? 0) === 1){
             if ($warrantycheck == 0){
 
-               if ($result->repeatpopup == 1){
-                  $id = $_GET['id'] ?? null;
+               if ((int)($pref->fields['repeatpopup'] ?? 0) === 1){
+                  $id = $ticketIdParam ?: null;
                   $now = time();
                   $expire_after = 900; // 15 minutes
                   
@@ -314,7 +321,7 @@ class PluginWarrantycheckTicket extends CommonDBTM {
 
                      <?php
                      // Position du toast
-                     $toastPositionClass = match($result->positioning) {
+                     $toastPositionClass = match((int)($pref->fields['positioning'] ?? 0)) {
                         0 => 'bottom-0 end-0',   // Bas droite
                         1 => 'bottom-0 start-0', // Bas gauche
                         2 => 'top-0 end-0',      // Haut droite
@@ -354,7 +361,8 @@ class PluginWarrantycheckTicket extends CommonDBTM {
                            const toastDelay    = <?= isset($toastdelay) ? (int)$toastdelay : 30000; ?>;
 
                            $(function () {
-                              const ticketID = <?= json_encode($_GET['id']); ?>;
+                              const ticketID = <?= json_encode($ticketIdParam); ?>;
+                              const esc = (v) => $('<div>').text(String(v ?? '')).html();
 
                               /* ----- Affiche immédiatement le toast + spinner ----- */
                               $('#warranty-toast-container').show();
@@ -374,7 +382,7 @@ class PluginWarrantycheckTicket extends CommonDBTM {
                                  /* ---------- Warnings (BL déjà attribué) ---------- */
                                  if (data && data.warnings && data.warnings.length) {
                                     $('#warranty_result').append(
-                                       data.warnings.map(msg => `<div class="alert alert-warning p-2 mb-2">${msg}</div>`).join('')
+                                       data.warnings.map(msg => `<div class="alert alert-warning p-2 mb-2">${esc(msg)}</div>`).join('')
                                     );
                                  }
 
@@ -394,14 +402,14 @@ class PluginWarrantycheckTicket extends CommonDBTM {
                                        if (statusText && statusText.toLowerCase().includes('expired')) colorClass = 'badge bg-danger';
 
                                        const serialLink = serial
-                                       ? `<a href="${pluginUrl}?serial=${encodeURIComponent(serial)}" target="_blank">${serial}</a>`
+                                       ? `<a href="${pluginUrl}?serial=${encodeURIComponent(serial)}" target="_blank">${esc(serial)}</a>`
                                        : '';
 
                                        html += `
                                        <div style="margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid #ccc;">
-                                          <div><strong>${info}</strong> ${serialLink}</div>
-                                          ${fabricant  ? `<div><strong>Fabricant :</strong> ${fabricant}</div>` : ''}
-                                          ${statusText ? `<div><strong>Statut de la garantie :</strong> <span class="${colorClass}">${statusText}</span></div>` : ''}
+                                          <div><strong>${esc(info)}</strong> ${serialLink}</div>
+                                          ${fabricant  ? `<div><strong>Fabricant :</strong> ${esc(fabricant)}</div>` : ''}
+                                          ${statusText ? `<div><strong>Statut de la garantie :</strong> <span class="${colorClass}">${esc(statusText)}</span></div>` : ''}
                                        </div>`;
                                     });
 

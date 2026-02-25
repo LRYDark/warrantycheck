@@ -57,17 +57,23 @@ class PluginWarrantycheckGenerateCRI extends CommonGLPI {
          $UserID = Session::getLoginUserID();
          $config = new PluginWarrantycheckConfig();
          $SN = null;
+         $result = null;
+         $cacheId = isset($_GET['cache_id']) ? preg_replace('/[^A-Za-z0-9_.-]/', '', (string)$_GET['cache_id']) : '';
 
-         if (isset($_GET['cache_id'], $_SESSION['generatecri_cache'][$_GET['cache_id']])) {
-            $result = $_SESSION['generatecri_cache'][$_GET['cache_id']];
+         if ($cacheId !== '' && isset($_SESSION['generatecri_cache'][$cacheId])) {
+            $result = $_SESSION['generatecri_cache'][$cacheId];
             $SN = $result['serial'] ?? null;
          }
 
-         if(empty($result['serial'])){
+         if (empty($result['serial'] ?? null)) {
             if(isset($_GET['serial'])){
-               $SN = $_GET['serial'];
+               $SN = (string)$_GET['serial'];
             }
          }
+         $SN = trim((string)$SN);
+         $SN_ESC = htmlspecialchars($SN, ENT_QUOTES, 'UTF-8');
+         $SN_URL = rawurlencode($SN);
+         $SN_JS  = addslashes($SN);
 
          // Formulaire
          echo '<div class="card mb-4 shadow-sm w-100">';
@@ -127,9 +133,9 @@ class PluginWarrantycheckGenerateCRI extends CommonGLPI {
                echo '<div class="d-flex justify-content-center">';
                   echo '<div class="input-group" style="max-width: 600px; width: 100%;">';
                      if ($config->related_elements() == 1){
-                        echo '<input type="text" name="serial" id="serial" class="form-control" placeholder="Numéro de série / Devis / Facture / BC / BL" value="'.$SN.'" required>';
+                        echo '<input type="text" name="serial" id="serial" class="form-control" placeholder="Numéro de série / Devis / Facture / BC / BL" value="'.$SN_ESC.'" required>';
                      }else{
-                        echo '<input type="text" name="serial" id="serial" class="form-control" placeholder="Numéro de série" value="'.$SN.'" required>';
+                        echo '<input type="text" name="serial" id="serial" class="form-control" placeholder="Numéro de série" value="'.$SN_ESC.'" required>';
                      }
                      echo '<button type="submit" name="generatecri" id="sig-submitBtn" class="btn btn-primary">';
                         echo __('Rechercher');
@@ -148,11 +154,11 @@ class PluginWarrantycheckGenerateCRI extends CommonGLPI {
                echo '<div class="d-flex justify-content-center gap-4">';
                echo '   <label class="d-block mb-2"><strong>Sites officiels de vérification de garantie :</strong></label>';
                echo '      <div class="d-flex flex-wrap gap-2">';
-               echo '         <a class="btn btn-outline-primary btn-sm" href="https://support.hp.com/fr-fr/check-warranty" target="_blank" onclick="copyToClipboard(\'' . $SN . '\')">HP</a>';
-               echo '         <a class="btn btn-outline-primary btn-sm" href="https://pcsupport.lenovo.com/fr/fr/warranty-lookup#/" target="_blank" onclick="copyToClipboard(\'' . $SN . '\')">Lenovo</a>';
-               echo '         <a class="btn btn-outline-primary btn-sm" href="https://www.dell.com/support/contractservices/fr-fr/" target="_blank" onclick="copyToClipboard(\'' . $SN . '\')">Dell</a>';
-               echo '         <a class="btn btn-outline-primary btn-sm" href="https://www.wortmann.de/fr-fr/profile/snsearch.aspx?SN=' . $SN . '" target="_blank" onclick="copyToClipboard(\'' . $SN . '\')">Terra</a>';
-               echo '         <a class="btn btn-outline-primary btn-sm" href="https://support.dynabook.com/support/warranty" target="_blank" onclick="copyToClipboard(\'' . $SN . '\')">Dynabook</a>';
+               echo '         <a class="btn btn-outline-primary btn-sm" href="https://support.hp.com/fr-fr/check-warranty" target="_blank" onclick="copyToClipboard(\'' . $SN_JS . '\')">HP</a>';
+               echo '         <a class="btn btn-outline-primary btn-sm" href="https://pcsupport.lenovo.com/fr/fr/warranty-lookup#/" target="_blank" onclick="copyToClipboard(\'' . $SN_JS . '\')">Lenovo</a>';
+               echo '         <a class="btn btn-outline-primary btn-sm" href="https://www.dell.com/support/contractservices/fr-fr/" target="_blank" onclick="copyToClipboard(\'' . $SN_JS . '\')">Dell</a>';
+               echo '         <a class="btn btn-outline-primary btn-sm" href="https://www.wortmann.de/fr-fr/profile/snsearch.aspx?SN=' . $SN_URL . '" target="_blank" onclick="copyToClipboard(\'' . $SN_JS . '\')">Terra</a>';
+               echo '         <a class="btn btn-outline-primary btn-sm" href="https://support.dynabook.com/support/warranty" target="_blank" onclick="copyToClipboard(\'' . $SN_JS . '\')">Dynabook</a>';
                echo '      </div>';
                echo '</div>';
             echo '</div>'; // card-body
@@ -166,12 +172,12 @@ class PluginWarrantycheckGenerateCRI extends CommonGLPI {
          }
 
          // On récupère la valeur depuis l'URL
-         $fabricant = $_GET['fabricant'] ?? '';
+         $fabricant = preg_replace('/[^A-Za-z]/', '', (string)($_GET['fabricant'] ?? ''));
 
          if (!in_array($fabricant, $valeurs_ok)) {
             // Résultat
-            if (isset($_GET['cache_id'], $_SESSION['generatecri_cache'][$_GET['cache_id']])) {
-               unset($_SESSION['generatecri_cache'][$_GET['cache_id']]);
+            if ($cacheId !== '' && isset($_SESSION['generatecri_cache'][$cacheId])) {
+               unset($_SESSION['generatecri_cache'][$cacheId]);
 
                if ($result && is_array($result)) {
                   // Détection de l'état de garantie
@@ -180,10 +186,10 @@ class PluginWarrantycheckGenerateCRI extends CommonGLPI {
 
                   echo '<div class="card shadow-sm mt-4">';
                   echo '<div class="card-header ' . $color_class . ' text-white fw-bold">';
-                  echo __('<i class="fas fa-info-circle"></i>&nbsp;&nbsp; Détails de la garantie') . ' ' . $result['fabricant'];
+                  echo __('<i class="fas fa-info-circle"></i>&nbsp;&nbsp; Détails de la garantie') . ' ' . htmlspecialchars((string)($result['fabricant'] ?? ''), ENT_QUOTES, 'UTF-8');
                   echo '</div>';
                   echo '<div class="card-body">';
-                  echo '<strong>Fabricant : </strong>' . $result['fabricant'] . '<br><br>';
+                  echo '<strong>Fabricant : </strong>' . htmlspecialchars((string)($result['fabricant'] ?? ''), ENT_QUOTES, 'UTF-8') . '<br><br>';
 
                   $labels = [
                      'model' => 'Modèle',
@@ -209,7 +215,7 @@ class PluginWarrantycheckGenerateCRI extends CommonGLPI {
                   echo '</div>'; // row
                   echo '</div></div>'; // card-body + card
 
-                  require_once '../front/warranty_functions.php';
+                  require_once PLUGIN_WARRANTYCHECK_DIR . '/front/warranty_functions.php';
                   insertSurveyData([
                      'serial_number' => $result['serial'],
                      'model'         => $result['model'],
@@ -221,18 +227,29 @@ class PluginWarrantycheckGenerateCRI extends CommonGLPI {
                   echo '<div class="alert alert-danger mt-4">Erreur : Aucune donnée retournée ou numéro invalide.</div>';
                }
             } else {
-               if (isset($_GET['cache_id'])) {
-                  echo '<div class="alert alert-danger mt-4">Erreur : Aucune donnée retournée (Erreur serveur '.$_GET['fabricant'].'), Fabricant non détécté ou numéro invalide.</div>';
+               if ($cacheId !== '') {
+                  echo '<div class="alert alert-danger mt-4">Erreur : Aucune donnée retournée (Erreur serveur ' . htmlspecialchars((string)($_GET['fabricant'] ?? ''), ENT_QUOTES, 'UTF-8') . '), Fabricant non détécté ou numéro invalide.</div>';
                }
             }
          }
 
-         if (isset($_GET['cache_id'])){
+         if ($cacheId !== ''){
             $tickets_id_list = [];
-            
-            $query = $DB->doQuery("SELECT tickets_id FROM glpi_plugin_warrantycheck_tickets WHERE serial_number = '$SN'");
-            if ($row = $query->fetch_object()) {
-               $tickets_id_list = array_filter(array_map('intval', explode(',', $row->tickets_id)));
+
+            $row = null;
+            $ticketRows = $DB->request([
+               'SELECT' => ['tickets_id'],
+               'FROM'   => 'glpi_plugin_warrantycheck_tickets',
+               'WHERE'  => ['serial_number' => $SN],
+               'LIMIT'  => 1,
+            ]);
+
+            foreach ($ticketRows as $ticketRow) {
+               $row = $ticketRow;
+               break;
+            }
+            if (is_array($row)) {
+               $tickets_id_list = array_filter(array_map('intval', explode(',', (string)($row['tickets_id'] ?? ''))));
             }
             
             if (count($tickets_id_list) > 0) {
@@ -247,8 +264,25 @@ class PluginWarrantycheckGenerateCRI extends CommonGLPI {
                   WHERE glpi_tickets.id IN ($in_clause)
                   ORDER BY glpi_tickets.date_creation DESC;
                ";
-               $result = $DB->doQuery($tickets_query);
-            
+               $result = $DB->request([
+                  'SELECT'    => [
+                     'glpi_tickets.id',
+                     'glpi_tickets.name',
+                     'glpi_tickets.status',
+                     'glpi_tickets.date_creation',
+                     'glpi_tickets.content',
+                     'glpi_entities.name AS entity_name',
+                  ],
+                  'FROM'      => 'glpi_tickets',
+                  'LEFT JOIN' => [
+                     'glpi_entities' => [
+                        'ON' => ['glpi_tickets' => 'entities_id', 'glpi_entities' => 'id']
+                     ],
+                  ],
+                  'WHERE'     => ['glpi_tickets.id' => $tickets_id_list],
+                  'ORDER'     => ['glpi_tickets.date_creation DESC'],
+               ]);
+
                echo '<br><div class="card mb-4 shadow-sm w-100">
                         <div class="card-header bg-dark text-white fw-bold">Tickets liés à l\'élément : ' . htmlspecialchars($SN) . '</div>
                         <div class="card-body">
@@ -264,9 +298,8 @@ class PluginWarrantycheckGenerateCRI extends CommonGLPI {
                               </tr>
                            </thead>
                            <tbody>';
-            
-               if ($result && $DB->numrows($result)) {
-                  while ($row = $DB->fetchassoc($result)) {
+
+               foreach ($result as $row) {
                      $ticket_id   = (int)$row['id'];
                      $entity_name = htmlspecialchars($row['entity_name']);
                      $name        = htmlspecialchars($row['name']);
@@ -296,11 +329,11 @@ class PluginWarrantycheckGenerateCRI extends CommonGLPI {
                               <td>$status</td>
                               <td>$date</td>
                            </tr>";
-                  }
-               } else {
+               }
+               if (count($result) === 0) {
                   echo '<tr><td colspan="5" class="text-center">Aucun ticket trouvé.</td></tr>';
                }
-            
+
                echo '</tbody></table></div></div></div>';
             } else {
                echo '<br><div class="alert alert-info mb-4 w-100">Aucun ticket associé à l\'élément :  <strong>' . htmlspecialchars($SN) . '</strong>.</div>';

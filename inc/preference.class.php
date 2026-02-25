@@ -39,14 +39,17 @@ class PluginWarrantycheckPreference extends CommonDBTM {
 
    static function checkIfPreferenceExists($users_id) {
       global $DB;
+      $users_id = (int)$users_id;
 
-      $result = $DB->doQuery("SELECT `id`
-                FROM `glpi_plugin_warrantycheck_preferences`
-                WHERE `users_id` = '" . $users_id . "' ");
-      if ($DB->numrows($result) > 0)
-         return $DB->result($result, 0, "id");
-      else
-         return 0;
+      $iterator = $DB->request([
+         'SELECT' => ['id'],
+         'FROM'   => 'glpi_plugin_warrantycheck_preferences',
+         'WHERE'  => ['users_id' => $users_id],
+         'LIMIT'  => 1
+      ]);
+
+      $row = $iterator->current();
+      return (int)($row['id'] ?? 0);
    }
 
    static function addDefaultPreference($users_id) {
@@ -178,6 +181,7 @@ class PluginWarrantycheckPreference extends CommonDBTM {
       $config = new PluginWarrantycheckConfig();     
      
       echo "<form action='" . $target . "' method='post'>";
+      echo Html::hidden('plugin_warrantycheck_pref_csrf_token', ['value' => Session::getNewCSRFToken(true)]);
       echo "<div align='center'>";
 
       echo "<table class='tab_cadre_fixe' style='margin: 0; margin-top: 5px;'>\n";
