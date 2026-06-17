@@ -90,23 +90,13 @@ function plugin_warrantycheck_install() { // fonction installation du plugin
          }
       }
 
-      if ($_SESSION['PLUGIN_WARRANTYCHECK_VERSION'] > '1.0.6'){
-         // Vérifier si les colonnes existent déjà
+      // SageLocal SUPPRIMEE (v1.1.3) : l'association des BL aux tickets est desormais
+      // geree nativement par le plugin gestion. On retire la colonne (idempotent).
+      if ($_SESSION['PLUGIN_WARRANTYCHECK_VERSION'] > '1.1.2'){
          $columns = $DB->doQuery("SHOW COLUMNS FROM `glpi_plugin_warrantycheck_preferences`")->fetch_all(MYSQLI_ASSOC);
-
-         // Liste des colonnes à vérifier
-         $required_columns = [
-            'SageLocal'
-         ];
-
-         // Liste pour les colonnes manquantes
-         $missing_columns = array_diff($required_columns, array_column($columns, 'Field'));
-
-         if (!empty($missing_columns)) {
-            $query= "ALTER TABLE glpi_plugin_warrantycheck_preferences
-               ADD COLUMN `SageLocal` INT(10) NOT NULL DEFAULT '0';";
-            if (!$DB->doQuery($query)) {
-               Toolbox::logInFile('plugin_warrantycheck', "ERROR: ALTER TABLE failed: " . $DB->error() . PHP_EOL);
+         if (in_array('SageLocal', array_column($columns, 'Field'), true)) {
+            if (!$DB->doQuery("ALTER TABLE glpi_plugin_warrantycheck_preferences DROP COLUMN `SageLocal`")) {
+               Toolbox::logInFile('plugin_warrantycheck', "ERROR: DROP COLUMN SageLocal failed: " . $DB->error() . PHP_EOL);
             }
          }
       }
@@ -191,8 +181,17 @@ function plugin_warrantycheck_install() { // fonction installation du plugin
 function plugin_warrantycheck_uninstall() { // fonction desintallation du plugin
    global $DB;
 
+   // Suppression du dossier de documents : NON bloquante (cf. gestion).
+   // Sur disque reseau/mappe Windows, chmod echoue et Safe\chmod() leve une exception ;
+   // sans ce try/catch, la desinstallation s'interrompt avant la suppression des tables.
    $rep_files_rp = GLPI_PLUGIN_DOC_DIR . "/warrantycheck";
-   Toolbox::deleteDir($rep_files_rp);
+   try {
+      if (file_exists($rep_files_rp)) {
+         Toolbox::deleteDir($rep_files_rp);
+      }
+   } catch (Throwable $e) {
+      // On poursuit la desinstallation meme si le dossier n'a pas pu etre supprime.
+   }
 
    $migration = new Migration(PLUGIN_WARRANTYCHECK_VERSION);
 

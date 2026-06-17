@@ -53,7 +53,6 @@ $config = new PluginWarrantycheckConfig();
 // Met à jour uniquement les préférences utilisateur attendues par ce formulaire.
 $prefAllowed = [
    'id',
-   'SageLocal',
    'positioning',
    'warrantypopup',
    'repeatpopup',

@@ -456,10 +456,7 @@ $pref->getFromDB($prefId);
 $statuswarranty = (int)($pref->fields['statuswarranty'] ?? 0);
 $max           = max(1, (int)($pref->fields['maxserial'] ?? 9999));
 $viewdoc       = (int)($pref->fields['viewdoc'] ?? 0);
-$sageLocalPref = (int)($pref->fields['SageLocal'] ?? 0);
 $warrantyInfoCache = [];
-$gestionPluginActive = Plugin::isPluginActive('gestion');
-$gestionModeCache = null;
 
 $BonLivraisonPrefixes = $config->Filtre_BonDeLivraison() ? _cfg_csv_to_array($config->Filtre_BonDeLivraison()) : [];
 $DevisPrefixes        = $config->Filtre_Devis() ? _cfg_csv_to_array($config->Filtre_Devis()) : [];
@@ -590,105 +587,10 @@ foreach ($liste as $serial) {
     }
 
     // ################################# BL / SAGE #################################
-    if (!$gestionPluginActive
-        || $sageLocalPref != 1
-        || $viewdoc != 1
-        || strncasecmp($serial, 'BL', 2) !== 0) {
-        continue;
-    }
-
-    if ($gestionModeCache === null) {
-        $configGestion = new PluginGestionConfig();
-        $gestionModeCache = (int)$configGestion->mode();
-    }
-    if ($gestionModeCache != 1) {
-        continue;
-    }
-
-    try {
-        require_once PLUGIN_GESTION_DIR.'/vendor/autoload.php';
-        require_once PLUGIN_GESTION_DIR.'/front/SageApi.php';
-
-        $fields   = parseDocument($serial);
-        $ticketId = $Ticket_id;
-
-        $existingRows = [];
-        foreach ($DB->request([
-            'SELECT' => ['id', 'tickets_id'],
-            'FROM'   => 'glpi_plugin_gestion_surveys',
-            'WHERE'  => ['url_bl' => $serial]
-        ]) as $row) {
-            $existingRows[] = $row;
-        }
-
-        $conflicts = [];
-
-        if (!empty($existingRows)) {
-            foreach ($existingRows as $row) {
-                $existingTicket = (int)$row['tickets_id'];
-                $rowId          = (int)$row['id'];
-
-                if ($existingTicket === $ticketId) {
-                    continue;
-                }
-
-                if ($existingTicket === 0) {
-                    $sql = "UPDATE glpi_plugin_gestion_surveys
-                            SET tickets_id = ?
-                            WHERE id = ?";
-                    $stmt = $DB->prepare($sql);
-                    $stmt->execute([$ticketId, $rowId]);
-
-                    $warnings[] = "$serial a été mis à jour pour le ticket $ticketId.";
-                    continue;
-                }
-
-                if ($existingTicket !== 0 && $existingTicket !== null) {
-                    $conflicts[] = $existingTicket;
-                }
-            }
-
-            if (!empty($conflicts)) {
-                $warnings[] = "$serial attribué au(x) ticket(s) : " . implode(', ', $conflicts);
-            }
-
-        } else {
-            $save      = 'Sage';
-            $file_path = $serial.'_'.str_replace(' ', '_', $fields['client']);
-            $protocol  = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-            $serverName = preg_replace('/[^A-Za-z0-9.\\-]/', '', (string)($_SERVER['SERVER_NAME'] ?? ''));
-            if ($serverName === '') {
-                $serverName = 'localhost';
-            }
-            $fileUrl   = "{$protocol}://{$serverName}".PLUGIN_GESTION_WEBDIR.
-                            "/ajax/view_pdf.php?id={$serial}";
-            $itemUrl   = $serial;
-            $tracker   = $fields['tracker'] ?? null;
-
-            $entities_id = (int)$DB->request([
-                'SELECT' => 'entities_id',
-                'FROM'   => 'glpi_tickets',
-                'WHERE'  => ['id' => $ticketId],
-                'LIMIT'  => 1
-            ])->current()['entities_id'];
-
-            $sql  = "INSERT INTO glpi_plugin_gestion_surveys
-                        (tickets_id, entities_id, url_bl, bl, doc_url, tracker, save)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)";
-            $stmt = $DB->prepare($sql);
-            $stmt->execute([$ticketId, $entities_id, $itemUrl, $file_path,
-                            $fileUrl,  $tracker,     $save]);
-
-            $warnings[] = "$serial a été ajouté au ticket $ticketId.";
-        }
-
-    } catch (Throwable $e) {
-        if (strpos($e->getMessage(), '(404)') !== false) {
-            continue;
-        }
-        $warnings[] = "Erreur BL « $serial » : ".$e->getMessage();
-        continue;
-    }
+    // Association BL -> gestion SUPPRIMEE (v1.1.3) : l'association des BL aux tickets
+    // est desormais geree NATIVEMENT par le plugin gestion (creation + ouverture).
+    // Warrantycheck ne fait plus que detecter/afficher les documents (BC/BL/FA/DE)
+    // dans la pop-up a titre informatif.
 }
 
 $warnings = array_values(array_filter($warnings));
