@@ -1,5 +1,4 @@
 <?php
-include('../../../inc/includes.php');
 Session::checkLoginUser();
 if (!Session::haveRight('plugin_warrantycheck', READ)) {
     header('Content-Type: application/json; charset=utf-8');

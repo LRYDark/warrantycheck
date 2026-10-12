@@ -27,7 +27,6 @@
  --------------------------------------------------------------------------
  */
 
-include('../../../inc/includes.php');
 
 Session::checkLoginUser();
 
@@ -37,15 +36,6 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 if (!isset($_POST['update_user_preferences_warrantycheck'])) {
    Html::back();
 }
-
-function pluginWarrantycheckPrefCheckCSRF(array $data): void {
-    if (!empty($data['plugin_warrantycheck_pref_csrf_token'])) {
-        Session::checkCSRF(['_glpi_csrf_token' => (string)$data['plugin_warrantycheck_pref_csrf_token']], true);
-        return;
-    }
-    Session::checkCSRF($data, true);
-}
-pluginWarrantycheckPrefCheckCSRF($_POST);
 
 $pref   = new PluginWarrantycheckPreference();
 $config = new PluginWarrantycheckConfig();

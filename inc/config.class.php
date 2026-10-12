@@ -330,14 +330,11 @@ class PluginWarrantycheckConfig extends CommonDBTM
             echo "<tr class='tab_bg_1'>";
          echo "<td>" . __("Gestion des numéros de série", "gestion") . "</td><td>";
             // URLs construites par GLPI (évite les chemins relatifs)
-            $WARRANTY_BASE   = Plugin::getWebDir('warrantycheck');
+            $WARRANTY_BASE   = (($GLOBALS['CFG_GLPI']['root_doc'] ?? '') . '/plugins/warrantycheck');
             $WARRANTY_AJAX   = $WARRANTY_BASE . '/ajax/ajax_get_warranty_tickets.php';
             $WARRANTY_DELETE = $WARRANTY_BASE . '/ajax/ajax_delete_warranty_ticket.php';
             $WARRANTY_EXPORT = $WARRANTY_BASE . '/ajax/ajax_export_warranty_tickets.php'; // export
 
-            // Jeton CSRF pour POST
-            // Standalone token to avoid consuming the main config form token via AJAX delete action.
-            $GLPI_CSRF = Session::getNewCSRFToken(true);
             ?>
 
             <button id="openModalButton" type="button" class="btn btn-primary">Voir les numéros de série</button>
@@ -346,7 +343,6 @@ class PluginWarrantycheckConfig extends CommonDBTM
             const WARRANTY_AJAX_URL   = "<?= $WARRANTY_AJAX ?>";
             const WARRANTY_DELETE_URL = "<?= $WARRANTY_DELETE ?>";
             const WARRANTY_EXPORT_URL = "<?= $WARRANTY_EXPORT ?? '' ?>"; // peut être vide si pas d'export
-            const GLPI_CSRF           = "<?= $GLPI_CSRF ?>";
 
             // Désactive globalement le cache jQuery pour les GET (belt & suspenders)
             $.ajaxSetup({ cache: false });
@@ -481,12 +477,12 @@ class PluginWarrantycheckConfig extends CommonDBTM
             });
             function updateSelectedCount() { $('#selectedCount').text(WT.selected.size); }
 
-            // Suppression (CSRF)
+            // Suppression
             $(document).on('click', '#deleteSelectedBtn', function() {
             if (WT.selected.size === 0) { alert("Aucun élément sélectionné."); return; }
             if (!confirm(`Confirmer la suppression des ${WT.selected.size} éléments sélectionnés ?`)) return;
             $.post(WARRANTY_DELETE_URL,
-               { _glpi_csrf_token: GLPI_CSRF, ids: Array.from(WT.selected) },
+               { ids: Array.from(WT.selected) },
                function() { WT.selected.clear(); loadWarrantyTickets(); }
             ).fail(function(xhr){
                let body = xhr.responseText || '';
@@ -616,7 +612,6 @@ class PluginWarrantycheckConfig extends CommonDBTM
       echo "<input type='submit' class='submit' name='update' value=\"" . __('Save') . "\">";
       echo "</td>";
       echo "</tr>";
-      echo Html::hidden('plugin_warrantycheck_config_csrf_token', ['value' => Session::getNewCSRFToken(true)]);
       $config->showFormButtons(['candel' => false]);
       return false;
    }

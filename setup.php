@@ -1,21 +1,20 @@
 <?php
-define('PLUGIN_WARRANTYCHECK_VERSION', '1.1.3'); // version du plugin
+define('PLUGIN_WARRANTYCHECK_VERSION', '1.2.0'); // version du plugin
 $_SESSION['PLUGIN_WARRANTYCHECK_VERSION'] = PLUGIN_WARRANTYCHECK_VERSION;
 
 // Minimal GLPI version,
-define("PLUGIN_WARRANTYCHECK_MIN_GLPI", "11.0.0");
+define("PLUGIN_WARRANTYCHECK_MIN_GLPI", "12.0.0");
 // Maximum GLPI version,
-define("PLUGIN_WARRANTYCHECK_MAX_GLPI", "11.2.0");
+define("PLUGIN_WARRANTYCHECK_MAX_GLPI", "12.0.99");
 
-define("PLUGIN_WARRANTYCHECK_WEBDIR", Plugin::getWebDir("warrantycheck"));
+define("PLUGIN_WARRANTYCHECK_WEBDIR", ($GLOBALS['CFG_GLPI']['root_doc'] ?? '') . '/plugins/warrantycheck');
 define("PLUGIN_WARRANTYCHECK_DIR", Plugin::getPhpDir("warrantycheck"));
 define("PLUGIN_WARRANTYCHECK_NOTFULL_DIR", Plugin::getPhpDir("warrantycheck",false));
-define("PLUGIN_WARRANTYCHECK_NOTFULL_WEBDIR", Plugin::getWebDir("warrantycheck",false));
+define("PLUGIN_WARRANTYCHECK_NOTFULL_WEBDIR", 'plugins/warrantycheck');
 
 function plugin_init_warrantycheck() { // fonction glpi d'initialisation du plugin
    global $PLUGIN_HOOKS, $CFG_GLPI;
 
-   $PLUGIN_HOOKS['csrf_compliant']['warrantycheck'] = true;
    $PLUGIN_HOOKS['change_profile']['warrantycheck'] = [PluginWarrantycheckProfile::class, 'initProfile'];
 
    $plugin = new Plugin();

@@ -1,5 +1,4 @@
 <?php
-include ('../../../inc/includes.php');
 
 use Glpi\Event;
 
@@ -16,9 +15,6 @@ $config = new PluginWarrantycheckConfig();
 if (isset($_POST['save_selection']) && isset($_POST['tickets_id'])) {
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
         Html::back();
-    }
-    if (isset($_POST['_glpi_csrf_token'])) {
-        Session::checkCSRF($_POST, true);
     }
     $ticketId = (int) $_POST['tickets_id'];
     if ($ticketId <= 0) {

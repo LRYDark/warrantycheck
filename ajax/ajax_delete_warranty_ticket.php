@@ -1,7 +1,7 @@
 <?php
 /**
  * AJAX — Suppression de tickets de garantie (blindé contre sorties HTML)
- * IN  (POST): _glpi_csrf_token, ids[]=<int>...
+ * IN  (POST): ids[]=<int>...
  * OUT (JSON): { ok:true, requested:n, deleted:n } | { error:true, message:"...", debug_html:"..." }
  */
 
@@ -11,15 +11,7 @@ header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 // 1) Bufferise toute sortie (bannières debug, echoes perdus, etc.)
 ob_start();
 
-// 2) Bootstrap GLPI
-$inc = __DIR__ . '/../../../inc/includes.php';
-if (!file_exists($inc)) {
-  http_response_code(500);
-  $buf = ob_get_clean();
-  echo json_encode(['error'=>true,'message'=>'GLPI include not found','path'=>$inc,'debug_html'=>trim($buf)]);
-  exit;
-}
-require $inc;
+// 2) GLPI est déjà chargé par le noyau : plus d'include (inc/includes.php est obsolète en GLPI 12)
 
 // 3) Après include: convertir toute erreur en exception, puis renvoyer JSON
 set_error_handler(function($errno, $errstr, $errfile, $errline){
@@ -45,7 +37,6 @@ try {
     echo json_encode(['error' => true, 'message' => 'Forbidden', 'debug_html' => trim($buf)]);
     exit;
   }
-  Session::checkCSRF($_POST, true);
 
   if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);

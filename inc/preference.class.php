@@ -181,7 +181,6 @@ class PluginWarrantycheckPreference extends CommonDBTM {
       $config = new PluginWarrantycheckConfig();     
      
       echo "<form action='" . $target . "' method='post'>";
-      echo Html::hidden('plugin_warrantycheck_pref_csrf_token', ['value' => Session::getNewCSRFToken(true)]);
       echo "<div align='center'>";
 
       echo "<table class='tab_cadre_fixe' style='margin: 0; margin-top: 5px;'>\n";

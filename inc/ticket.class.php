@@ -7,7 +7,7 @@ if (!defined('GLPI_ROOT')) {
 //------------------------------------------------------------------------------------------
 class PluginWarrantycheckTicket extends CommonDBTM {
 
-   public static $rightname = 'plugin_warrantycheck';
+   public static string $rightname = 'plugin_warrantycheck';
    public  static  $warrantycheck = 0 ;
 
    static function getIcon() {

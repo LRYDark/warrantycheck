@@ -1,6 +1,5 @@
 <?php
 if (!defined('GLPI_ROOT')) {
-    include('../../../inc/includes.php');
 }
 
 if (!defined('GLPI_ROOT')) {

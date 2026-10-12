@@ -11,7 +11,7 @@ if (!defined('GLPI_ROOT')) {
  */
 class PluginWarrantycheckGenerateCRI extends CommonGLPI {
 
-   static $rightname = "ticket";
+   static string $rightname = "ticket";
    /**
     * @param int $nb
     *

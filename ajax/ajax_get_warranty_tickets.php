@@ -10,15 +10,7 @@ header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 // 1) Bufferise toute sortie (pour ne pas envoyer d'HTML par erreur)
 ob_start();
 
-// 2) Bootstrap GLPI
-$inc = __DIR__ . '/../../../inc/includes.php';
-if (!file_exists($inc)) {
-  http_response_code(500);
-  $buf = ob_get_clean();
-  echo json_encode(['error'=>true,'message'=>'GLPI include not found','path'=>$inc,'debug_html'=>trim($buf)]);
-  exit;
-}
-require $inc;
+// 2) GLPI est déjà chargé par le noyau : plus d'include (inc/includes.php est obsolète en GLPI 12)
 
 // 3) Convertit TOUTE erreur/notice en exception → on renvoie JSON propre
 set_error_handler(function($no,$str,$file,$line){ throw new ErrorException($str,0,$no,$file,$line); });

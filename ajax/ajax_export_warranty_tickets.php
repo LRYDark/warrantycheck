@@ -7,15 +7,7 @@
  // Anti-HTML parasite
 ob_start();
 
-$inc = __DIR__ . '/../../../inc/includes.php';
-if (!file_exists($inc)) {
-  http_response_code(500);
-  header('Content-Type: application/json; charset=utf-8');
-  $buf = ob_get_clean();
-  echo json_encode(['error'=>true,'message'=>'GLPI include not found','path'=>$inc,'debug_html'=>trim($buf)]);
-  exit;
-}
-require $inc;
+// GLPI est déjà chargé par le noyau : plus d'include (inc/includes.php est obsolète en GLPI 12)
 
 set_error_handler(function($no,$str,$file,$line){ throw new ErrorException($str,0,$no,$file,$line); });
 set_exception_handler(function($e){
