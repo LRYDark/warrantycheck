@@ -40,8 +40,8 @@ class PluginWarrantycheckConfig extends CommonDBTM
 
    static function getTypeName($nb = 0)
    {
-      //return __("Warrantycheck", "warrantycheck");
-      return __('<span class="d-flex align-items-center"><i class="fa-solid fa-circle-check me-2"></i>warrantycheck</span>', "warrantycheck");
+      // Texte simple : GLPI l'échappe dans ses messages (« Élément modifié : … ») ; l'icône est dans l'onglet.
+      return __('warrantycheck', 'warrantycheck');
 
    }
 
