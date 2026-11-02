@@ -16,6 +16,8 @@ function plugin_init_warrantycheck() { // fonction glpi d'initialisation du plug
    global $PLUGIN_HOOKS, $CFG_GLPI;
 
    $PLUGIN_HOOKS['csrf_compliant']['warrantycheck'] = true;
+   // Secrets chiffrés avec la clé de GLPI : s'il change de clé, il les rechiffre lui-même.
+   $PLUGIN_HOOKS['secured_fields']['warrantycheck'] = ['glpi_plugin_warrantycheck_configs.ClientID_Dell', 'glpi_plugin_warrantycheck_configs.ClientSecret_Dell', 'glpi_plugin_warrantycheck_configs.ClientID_HP', 'glpi_plugin_warrantycheck_configs.ClientSecret_HP'];
    $PLUGIN_HOOKS['change_profile']['warrantycheck'] = [PluginWarrantycheckProfile::class, 'initProfile'];
 
    $plugin = new Plugin();
