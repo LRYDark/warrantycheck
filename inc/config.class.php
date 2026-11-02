@@ -7,16 +7,12 @@ if (!defined('GLPI_ROOT')) {
 class PluginWarrantycheckConfig extends CommonDBTM
 {
    static private $_instance = null;
-   private static $cryptoKeyRawCache = null;
-   private static $cryptoKeySodiumCache = null;
    private static $encryptedConfigFields = [
       'ClientID_Dell',
       'ClientSecret_Dell',
       'ClientID_HP',
       'ClientSecret_HP'
    ];
-   private const LEGACY_OPENSSL_IV = '1234567890123456';
-   private const SODIUM_PREFIX = 'wc_sodium:';
 
    function __construct()
    {
@@ -60,105 +56,28 @@ class PluginWarrantycheckConfig extends CommonDBTM
       return self::$_instance;
    }
 
-   private static function getEncryptionKeyRaw(): string
-   {
-      if (self::$cryptoKeyRawCache !== null) {
-         return self::$cryptoKeyRawCache;
-      }
-
-      $file_path = GLPI_ROOT . '/config/glpicrypt.key';
-      $key = @file_get_contents($file_path);
-      self::$cryptoKeyRawCache = is_string($key) ? $key : '';
-      return self::$cryptoKeyRawCache;
-   }
-
-   private static function getSodiumKey(): ?string
-   {
-      if (self::$cryptoKeySodiumCache === false) {
-         return null;
-      }
-      if (is_string(self::$cryptoKeySodiumCache)) {
-         return self::$cryptoKeySodiumCache;
-      }
-
-      if (!extension_loaded('sodium')) {
-         self::$cryptoKeySodiumCache = false;
-         return null;
-      }
-
-      $raw = self::getEncryptionKeyRaw();
-      if ($raw === '') {
-         self::$cryptoKeySodiumCache = false;
-         return null;
-      }
-
-      // Dérive une clé stable 32 bytes depuis la clé GLPI existante.
-      self::$cryptoKeySodiumCache = hash('sha256', $raw, true);
-      return self::$cryptoKeySodiumCache;
-   }
-
-   private static function encryptSecretValue($value): string
-   {
-      $value = (string)$value;
-      if ($value === '') {
-         return '';
-      }
-
-      $sodiumKey = self::getSodiumKey();
-      if ($sodiumKey !== null) {
-         $nonce  = random_bytes(SODIUM_CRYPTO_SECRETBOX_NONCEBYTES);
-         $cipher = sodium_crypto_secretbox($value, $nonce, $sodiumKey);
-         return self::SODIUM_PREFIX . base64_encode($nonce . $cipher);
-      }
-
-      // Fallback legacy pour environnement sans sodium.
-      $legacy = openssl_encrypt($value, 'aes-256-cbc', self::getEncryptionKeyRaw(), 0, self::LEGACY_OPENSSL_IV);
-      return is_string($legacy) ? base64_encode($legacy) : '';
-   }
-
+   /** Clair d'un secret ; '' s'il est vide ou illisible (l'avertissement est dans le formulaire). */
    private static function decryptSecretValue($value): string
    {
-      $value = (string)$value;
-      if ($value === '') {
-         return '';
-      }
-
-      if (strncmp($value, self::SODIUM_PREFIX, strlen(self::SODIUM_PREFIX)) === 0) {
-         $payload = substr($value, strlen(self::SODIUM_PREFIX));
-         $bin = base64_decode($payload, true);
-         $sodiumKey = self::getSodiumKey();
-         if ($bin !== false && $sodiumKey !== null) {
-            $nlen = SODIUM_CRYPTO_SECRETBOX_NONCEBYTES;
-            if (strlen($bin) > $nlen) {
-               $nonce  = substr($bin, 0, $nlen);
-               $cipher = substr($bin, $nlen);
-               $plain = sodium_crypto_secretbox_open($cipher, $nonce, $sodiumKey);
-               if (is_string($plain)) {
-                  return $plain;
-               }
-            }
-         }
-         return '';
-      }
-
-      // Compatibilité legacy OpenSSL (valeurs déjà présentes en BDD).
-      $legacyCipher = base64_decode($value, true);
-      if ($legacyCipher !== false) {
-         $plain = openssl_decrypt($legacyCipher, 'aes-256-cbc', self::getEncryptionKeyRaw(), 0, self::LEGACY_OPENSSL_IV);
-         if (is_string($plain)) {
-            return $plain;
-         }
-      }
-
-      // Fallback tolérant: si valeur stockée en clair par erreur, on ne casse pas l'affichage.
-      return $value;
+      return PluginWarrantycheckCrypto::decrypt((string)$value) ?? '';
    }
 
+   /**
+    * Secrets chiffrés avec la clé de GLPI. Un secret illisible laissé vide n'est pas écrasé, et rien ne part en
+    * clair si la clé de GLPI est illisible (cf. PluginWarrantycheckCrypto::valueToSave()).
+    */
    public static function prepareConfigInputForSave(array $input): array
    {
+      $stored = (new self())->fields;
       foreach (self::$encryptedConfigFields as $field) {
-         if (array_key_exists($field, $input) && $input[$field] !== '') {
-            $input[$field] = self::encryptSecretValue($input[$field]);
+         if (!array_key_exists($field, $input)) {
+            continue;
+         }
+         $to_save = PluginWarrantycheckCrypto::valueToSave((string)$input[$field], $stored[$field] ?? null);
+         if ($to_save === null) {
+            unset($input[$field]);
+         } else {
+            $input[$field] = $to_save;
          }
       }
       return $input;
@@ -182,12 +101,14 @@ class PluginWarrantycheckConfig extends CommonDBTM
       echo "<tr class='tab_bg_1'>";
          echo "<td>" . __("Client ID", "gestion") . "</td><td>";
             echo Html::input('ClientID_Dell', ['value' => $config->ClientID_Dell(), 'size' => 80]);// bouton configuration du bas de page line 1
+            echo PluginWarrantycheckCrypto::unreadableNotice($config->fields['ClientID_Dell'] ?? '');
          echo "</td>";
       echo "</tr>";
 
       echo "<tr class='tab_bg_1'>";
          echo "<td>" . __("Client Secret", "gestion") . "</td><td>";
             echo Html::input('ClientSecret_Dell', ['value' => $config->ClientSecret_Dell(), 'size' => 80]);// bouton configuration du bas de page line 1
+            echo PluginWarrantycheckCrypto::unreadableNotice($config->fields['ClientSecret_Dell'] ?? '');
          echo "</td>";
       echo "</tr>";
 
@@ -196,12 +117,14 @@ class PluginWarrantycheckConfig extends CommonDBTM
       echo "<tr class='tab_bg_1'>";
          echo "<td>" . __("Client ID", "gestion") . "</td><td>";
             echo Html::input('ClientID_HP', ['value' => $config->ClientID_HP(), 'size' => 80]);// bouton configuration du bas de page line 1
+            echo PluginWarrantycheckCrypto::unreadableNotice($config->fields['ClientID_HP'] ?? '');
          echo "</td>";
       echo "</tr>";
 
       echo "<tr class='tab_bg_1'>";
          echo "<td>" . __("Client Secret", "gestion") . "</td><td>";
             echo Html::input('ClientSecret_HP', ['value' => $config->ClientSecret_HP(), 'size' => 80]);// bouton configuration du bas de page line 1
+            echo PluginWarrantycheckCrypto::unreadableNotice($config->fields['ClientSecret_HP'] ?? '');
          echo "</td>";
       echo "</tr>";
 
@@ -718,6 +641,54 @@ class PluginWarrantycheckConfig extends CommonDBTM
       return true;
    }
   
+   /**
+    * Secrets réécrits au format de GLPIKey (clé de GLPI). Une valeur illisible n'est pas touchée : elle est
+    * signalée dans le journal du plugin et dans le formulaire, et une clé restaurée pourra encore la lire.
+    */
+   private static function migrateEncryptedFields(Migration $migration): void
+   {
+      global $DB;
+
+      $table = self::getTable();
+      if (!$DB->tableExists($table)) {
+         return;
+      }
+
+      $fields = array_values(array_filter(
+         ['ClientID_Dell', 'ClientSecret_Dell', 'ClientID_HP', 'ClientSecret_HP'],
+         static fn(string $field): bool => $DB->fieldExists($table, $field, false)
+      ));
+      if ($fields === []) {
+         return;
+      }
+
+      $row = $DB->request([
+         'SELECT' => array_merge(['id'], $fields),
+         'FROM'   => $table,
+         'WHERE'  => ['id' => 1],
+         'LIMIT'  => 1,
+      ])->current();
+      if (!is_array($row)) {
+         return;
+      }
+
+      $updates = [];
+      foreach ($fields as $field) {
+         $raw = (string)($row[$field] ?? '');
+         $new = PluginWarrantycheckCrypto::upgrade($raw);
+         if ($new === null) {
+            Toolbox::logInFile('plugin-warrantycheck', "Secret « $field » illisible (clé de chiffrement changée ou perdue) : à ressaisir dans la configuration du plugin.\n");
+         } elseif ($new !== $raw) {
+            $updates[$field] = $new;
+         }
+      }
+
+      if ($updates !== []) {
+         $DB->update($table, $updates, ['id' => (int)$row['id']]);
+         $migration->displayMessage('Secrets du plugin rechiffrés avec la clé de GLPI');
+      }
+   }
+
    static function install(Migration $migration)
    {
       global $DB;
@@ -815,6 +786,8 @@ class PluginWarrantycheckConfig extends CommonDBTM
             $DB->doQuery($query) or die($DB->error());
          }
       }
+
+      self::migrateEncryptedFields($migration);
    }
 
    static function uninstall(Migration $migration)
