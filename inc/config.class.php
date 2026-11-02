@@ -765,7 +765,7 @@ class PluginWarrantycheckConfig extends CommonDBTM
          $config->add(['id' => 1,]);
       }
 
-      if ($_SESSION['PLUGIN_WARRANTYCHECK_VERSION'] > '1.0.3'){
+      if (version_compare(PLUGIN_WARRANTYCHECK_VERSION, '1.0.3', '>')){
          // Vérifier si les colonnes existent déjà
          $columns = $DB->doQuery("SHOW COLUMNS FROM `$table`")->fetch_all(MYSQLI_ASSOC);
 
@@ -800,7 +800,7 @@ class PluginWarrantycheckConfig extends CommonDBTM
          }
       }
       
-      if ($_SESSION['PLUGIN_WARRANTYCHECK_VERSION'] > '1.0.8'){ // new
+      if (version_compare(PLUGIN_WARRANTYCHECK_VERSION, '1.0.8', '>')){ // new
          // Vérifier si les colonnes existent déjà
          $columns = $DB->doQuery("SHOW COLUMNS FROM `$table`")->fetch_all(MYSQLI_ASSOC);
 
