@@ -25,7 +25,7 @@ function plugin_warrantycheck_install() { // fonction installation du plugin
          return false;
       }
    }
-      if ($_SESSION['PLUGIN_WARRANTYCHECK_VERSION'] > '1.0.1'){
+      if (version_compare(PLUGIN_WARRANTYCHECK_VERSION, '1.0.1', '>')){
          // Vérifier si les colonnes existent déjà
          $columns = $DB->doQuery("SHOW COLUMNS FROM `glpi_plugin_warrantycheck_preferences`")->fetch_all(MYSQLI_ASSOC);
 
@@ -46,7 +46,7 @@ function plugin_warrantycheck_install() { // fonction installation du plugin
          }
       }
 
-      if ($_SESSION['PLUGIN_WARRANTYCHECK_VERSION'] > '1.0.2'){
+      if (version_compare(PLUGIN_WARRANTYCHECK_VERSION, '1.0.2', '>')){
          // Vérifier si les colonnes existent déjà
          $columns = $DB->doQuery("SHOW COLUMNS FROM `glpi_plugin_warrantycheck_preferences`")->fetch_all(MYSQLI_ASSOC);
 
@@ -67,7 +67,7 @@ function plugin_warrantycheck_install() { // fonction installation du plugin
          }
       }
 
-      if ($_SESSION['PLUGIN_WARRANTYCHECK_VERSION'] > '1.0.3'){
+      if (version_compare(PLUGIN_WARRANTYCHECK_VERSION, '1.0.3', '>')){
          // Vérifier si les colonnes existent déjà
          $columns = $DB->doQuery("SHOW COLUMNS FROM `glpi_plugin_warrantycheck_preferences`")->fetch_all(MYSQLI_ASSOC);
 
@@ -92,7 +92,7 @@ function plugin_warrantycheck_install() { // fonction installation du plugin
 
       // SageLocal SUPPRIMEE (v1.1.3) : l'association des BL aux tickets est desormais
       // geree nativement par le plugin gestion. On retire la colonne (idempotent).
-      if ($_SESSION['PLUGIN_WARRANTYCHECK_VERSION'] > '1.1.2'){
+      if (version_compare(PLUGIN_WARRANTYCHECK_VERSION, '1.1.2', '>')){
          $columns = $DB->doQuery("SHOW COLUMNS FROM `glpi_plugin_warrantycheck_preferences`")->fetch_all(MYSQLI_ASSOC);
          if (in_array('SageLocal', array_column($columns, 'Field'), true)) {
             if (!$DB->doQuery("ALTER TABLE glpi_plugin_warrantycheck_preferences DROP COLUMN `SageLocal`")) {
@@ -102,8 +102,8 @@ function plugin_warrantycheck_install() { // fonction installation du plugin
       }
    
       // Exécuter seulement si version > 1.0.8
-      if (!empty($_SESSION['PLUGIN_WARRANTYCHECK_VERSION'])
-         && version_compare($_SESSION['PLUGIN_WARRANTYCHECK_VERSION'], '1.0.8', '>')
+      if (defined('PLUGIN_WARRANTYCHECK_VERSION')
+         && version_compare(PLUGIN_WARRANTYCHECK_VERSION, '1.0.8', '>')
       ) {
          global $DB;
 
