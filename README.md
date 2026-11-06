@@ -1,5 +1,8 @@
 # Warrantycheck
 
+> **Plus maintenu.** La version 1.2.1 pour GLPI 12 (branche `GLPI_12`) est la dernière du plugin :
+> aucune correction ni évolution ne sera publiée après elle.
+
 Plugin GLPI de vérification de garantie matérielle et de détection de références documentaires (BL/BC/FA/DE) dans les tickets.
 
 Le plugin permet de:
